@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
+import { initApiClient } from './api';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { markBootOk, showBootError } from './bootStatus';
 import { SessionProvider } from './session/SessionProvider';
@@ -10,11 +11,16 @@ import './styles.css';
 
 applyUiScale(readUiScale());
 
-const rootEl = document.getElementById('root');
-if (!rootEl) {
-  showBootError('Missing #root element.');
-} else {
+async function start(): Promise<void> {
+  const rootEl = document.getElementById('root');
+  if (!rootEl) {
+    showBootError('Missing #root element.');
+    return;
+  }
+
   try {
+    // Electron: wait for the resolved ephemeral API port before any fetch/ws.
+    await initApiClient();
     createRoot(rootEl).render(
       <StrictMode>
         <ErrorBoundary>
@@ -31,3 +37,5 @@ if (!rootEl) {
     showBootError(error instanceof Error ? error.message : String(error));
   }
 }
+
+void start();

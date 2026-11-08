@@ -30,10 +30,18 @@ async function bootstrap() {
     });
   }
 
-  const port = Number(process.env.PORT ?? 3000);
-  const host = process.env.HOST ?? '0.0.0.0';
-  await app.listen(port, host);
+  // PORT=0 lets the OS assign an ephemeral port; HOST defaults to localhost.
+  const requestedPort = Number(process.env.PORT ?? 0);
+  const host = process.env.HOST ?? '127.0.0.1';
+  await app.listen(requestedPort, host);
+
+  const address = app.getHttpServer().address();
+  const port =
+    typeof address === 'object' && address !== null ? address.port : requestedPort;
   console.log(`Karaokej listening on http://${host}:${port}`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('Failed to start Karaokej API:', err);
+  process.exit(1);
+});
