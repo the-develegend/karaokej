@@ -2551,53 +2551,125 @@ a.search-miss-btn:hover {
   width: min(96vw, 56rem);
 }
 
-.metadata-compare-split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+.metadata-compare {
   margin-top: 0.75rem;
-}
-
-@media (max-width: 720px) {
-  .metadata-compare-split {
-    grid-template-columns: 1fr;
-  }
-}
-
-.metadata-compare-pane {
   border: 1px solid var(--line);
   border-radius: 0.6rem;
   padding: 0.75rem;
+  display: grid;
+  gap: 0.65rem;
   min-width: 0;
 }
 
-.metadata-compare-pane-title {
-  margin: 0 0 0.5rem;
-  font-size: 0.95rem;
+.metadata-compare-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
 }
 
-.metadata-compare-fields {
+.metadata-compare-source {
   margin: 0;
+}
+
+.metadata-compare-table {
   display: grid;
-  gap: 0.45rem;
+  grid-template-columns: minmax(6.5rem, 8.5rem) minmax(0, 1fr) minmax(0, 1fr) 4.25rem;
+  column-gap: 0.75rem;
+  row-gap: 0.45rem;
+  align-items: baseline;
+  font-size: 0.85rem;
+  min-width: 0;
 }
 
 .metadata-compare-row {
-  display: grid;
-  grid-template-columns: 7.5rem 1fr auto;
-  gap: 0.45rem;
-  align-items: baseline;
-  font-size: 0.85rem;
+  display: contents;
 }
 
-.metadata-compare-row dt {
-  margin: 0;
+.metadata-compare-header > * {
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 0.1rem;
+}
+
+.metadata-compare-label {
   opacity: 0.85;
 }
 
-.metadata-compare-row dd {
-  margin: 0;
+.metadata-compare-disk,
+.metadata-compare-hit {
+  min-width: 0;
   word-break: break-word;
+}
+
+.metadata-compare-action {
+  min-height: 1.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.metadata-compare-action button {
+  padding: 0.25rem 0.7rem;
+}
+
+.metadata-compare-apply-all {
+  justify-self: end;
+}
+
+@media (max-width: 720px) {
+  .metadata-compare-table {
+    grid-template-columns: minmax(5.5rem, 7rem) minmax(0, 1fr);
+    row-gap: 0.2rem;
+  }
+
+  .metadata-compare-row {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    grid-template-areas:
+      'label action'
+      'disk disk'
+      'hit hit';
+    row-gap: 0.15rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .metadata-compare-header {
+    display: none;
+  }
+
+  .metadata-compare-label {
+    grid-area: label;
+    font-weight: 600;
+    opacity: 1;
+  }
+
+  .metadata-compare-disk {
+    grid-area: disk;
+  }
+
+  .metadata-compare-disk::before {
+    content: 'On disk: ';
+    opacity: 0.7;
+  }
+
+  .metadata-compare-hit {
+    grid-area: hit;
+  }
+
+  .metadata-compare-hit::before {
+    content: 'Search: ';
+    opacity: 0.7;
+  }
+
+  .metadata-compare-action {
+    grid-area: action;
+  }
 }
 
 button.metadata-use-applied,

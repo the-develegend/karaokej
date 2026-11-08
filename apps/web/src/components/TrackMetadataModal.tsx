@@ -747,85 +747,109 @@ export function TrackMetadataModal({
             </ul>
           </div>
           {diskSnapshot && (
-            <div className="metadata-compare-split">
-              <ComparePane title="On disk" snapshot={diskSnapshot} />
-              <div className="metadata-compare-pane">
-                <ComparePaneTitle title="Search result" />
-                {currentHit ? (
-                  <>
-                    <p className="lyric-search-hint">
-                      {currentHit.providerLabel}
-                      {currentHit.externalUrl ? (
-                        <>
-                          {' '}
-                          ·{' '}
-                          <a href={currentHit.externalUrl} target="_blank" rel="noreferrer">
-                            Open
-                          </a>
-                        </>
-                      ) : null}
-                    </p>
-                    {hits.length > 1 ? (
-                      <div className="metadata-result-nav">
-                        <button
-                          type="button"
-                          disabled={hitIndex <= 0}
-                          onClick={() => setHitIndex((i) => Math.max(0, i - 1))}
+            <div className="metadata-compare">
+              {currentHit ? (
+                <div className="metadata-compare-toolbar">
+                  <p className="lyric-search-hint metadata-compare-source">
+                    {currentHit.providerLabel}
+                    {currentHit.externalUrl ? (
+                      <>
+                        {' '}
+                        ·{' '}
+                        <a
+                          href={currentHit.externalUrl}
+                          target="_blank"
+                          rel="noreferrer"
                         >
-                          Previous
-                        </button>
-                        <span>
-                          Result {hitIndex + 1} of {hits.length}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={hitIndex >= hits.length - 1}
-                          onClick={() =>
-                            setHitIndex((i) => Math.min(hits.length - 1, i + 1))
-                          }
-                        >
-                          Next
-                        </button>
-                      </div>
+                          Open
+                        </a>
+                      </>
                     ) : null}
-                    <dl className="metadata-compare-fields">
-                      {applyFields.map(({ key, label }) => {
-                        const applied = isFieldApplied(key);
-                        return (
-                          <div key={key} className="metadata-compare-row">
-                            <dt>{label}</dt>
-                            <dd>{displayValue(hitSnapshot!, key)}</dd>
-                            <button
-                              type="button"
-                              className={
-                                applied ? 'metadata-use-applied' : undefined
-                              }
-                              aria-pressed={applied}
-                              onClick={() => applyFieldFromHit(key)}
-                            >
-                              Use
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </dl>
-                    <button
-                      type="button"
-                      className={
-                        allFieldsApplied ? 'metadata-use-applied' : undefined
-                      }
-                      aria-pressed={allFieldsApplied}
-                      onClick={() => applyAllFromHit()}
-                    >
-                      Apply all of this result
-                    </button>
-                  </>
-                ) : searchPhase === 'done' ? (
-                  <p className="lyric-search-hint">
-                    No results. Adjust the query or providers and search again.
                   </p>
-                ) : null}
+                  {hits.length > 1 ? (
+                    <div className="metadata-result-nav">
+                      <button
+                        type="button"
+                        disabled={hitIndex <= 0}
+                        onClick={() => setHitIndex((i) => Math.max(0, i - 1))}
+                      >
+                        Previous
+                      </button>
+                      <span>
+                        Result {hitIndex + 1} of {hits.length}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={hitIndex >= hits.length - 1}
+                        onClick={() =>
+                          setHitIndex((i) => Math.min(hits.length - 1, i + 1))
+                        }
+                      >
+                        Next
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : searchPhase === 'done' ? (
+                <p className="lyric-search-hint">
+                  No results. Adjust the query or providers and search again.
+                </p>
+              ) : null}
+              <div className="metadata-compare-table" role="table">
+                <div className="metadata-compare-row metadata-compare-header" role="row">
+                  <div className="metadata-compare-label" role="columnheader" />
+                  <div role="columnheader">On disk</div>
+                  <div role="columnheader">Search result</div>
+                  <div className="metadata-compare-action" role="columnheader" />
+                </div>
+                {COMPARE_FIELDS.map(({ key, label, skipInApply }) => {
+                  const canApply = !skipInApply && currentHit != null;
+                  const applied = canApply && isFieldApplied(key);
+                  return (
+                    <div key={key} className="metadata-compare-row" role="row">
+                      <div className="metadata-compare-label" role="rowheader">
+                        {label}
+                      </div>
+                      <div className="metadata-compare-disk" role="cell">
+                        {displayValue(diskSnapshot, key)}
+                      </div>
+                      <div className="metadata-compare-hit" role="cell">
+                        {hitSnapshot
+                          ? displayValue(hitSnapshot, key)
+                          : '—'}
+                      </div>
+                      <div className="metadata-compare-action" role="cell">
+                        {canApply ? (
+                          <button
+                            type="button"
+                            className={
+                              applied ? 'metadata-use-applied' : undefined
+                            }
+                            aria-pressed={applied}
+                            onClick={() => applyFieldFromHit(key)}
+                          >
+                            Use
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+              {currentHit ? (
+                <button
+                  type="button"
+                  className={
+                    allFieldsApplied
+                      ? 'metadata-use-applied metadata-compare-apply-all'
+                      : 'metadata-compare-apply-all'
+                  }
+                  aria-pressed={allFieldsApplied}
+                  onClick={() => applyAllFromHit()}
+                >
+                  Apply all of this result
+                </button>
+              ) : null}
             </div>
           )}
           {error ? <p className="lyric-search-error">{error}</p> : null}
@@ -1022,28 +1046,3 @@ export function TrackMetadataModal({
   );
 }
 
-function ComparePaneTitle({ title }: { title: string }) {
-  return <h3 className="metadata-compare-pane-title">{title}</h3>;
-}
-
-function ComparePane({
-  title,
-  snapshot,
-}: {
-  title: string;
-  snapshot: FormSnapshot;
-}) {
-  return (
-    <div className="metadata-compare-pane">
-      <ComparePaneTitle title={title} />
-      <dl className="metadata-compare-fields">
-        {COMPARE_FIELDS.map(({ key, label }) => (
-          <div key={key} className="metadata-compare-row">
-            <dt>{label}</dt>
-            <dd>{displayValue(snapshot, key)}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
-  );
-}
