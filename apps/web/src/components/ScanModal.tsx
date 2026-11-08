@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { JobStatusDto, LibraryStatusDto } from '@karaokej/shared';
 import { formatRelativeScanTime } from '../format';
 import { ModalDialog } from './ModalDialog';
@@ -72,9 +73,33 @@ export function ScanModal({
       </div>
       <div className="toolbar-status scan-modal-status">
         <p className="status-copy">
-          {status?.libraryConfigured
-            ? `${status.trackCount} tracks · ${status.withLyrics} with lyrics · Last full scan: ${formatRelativeScanTime(status.lastFullScanAt)}`
-            : 'Set MUSIC_LIBRARY_PATH in .env (comma-separated for multiple libraries) and restart the server.'}
+          {status?.libraryConfigured ? (
+            <>
+              {status.trackCount} tracks · {status.withLyrics} with lyrics · Last
+              full scan: {formatRelativeScanTime(status.lastFullScanAt)}
+              {status.rebasePending ? (
+                <>
+                  {' '}
+                  · Library folders changed —{' '}
+                  <Link to="/settings">Apply / Rebase on Settings</Link> before
+                  scanning.
+                </>
+              ) : null}
+              {(status.invalidLibraryPaths?.length ?? 0) > 0 ? (
+                <>
+                  {' '}
+                  · Some saved folders are unreachable (
+                  {status.invalidLibraryPaths.length}).
+                </>
+              ) : null}
+            </>
+          ) : (
+            <>
+              No library folders configured.{' '}
+              <Link to="/settings">Set library folders on Settings</Link>, then
+              scan.
+            </>
+          )}
           {scan.message ? (
             <>
               {' · '}

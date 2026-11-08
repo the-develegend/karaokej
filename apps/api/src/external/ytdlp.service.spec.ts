@@ -26,6 +26,7 @@ describe('YtdlpService', () => {
   const library = {
     setJob: vi.fn(),
     ingestDownloadedFile: vi.fn(),
+    requireLibraryRootsForDownload: vi.fn(() => '/mnt/a/Music'),
   };
   const config = {
     ytdlpPath: '/mnt/c/Program Files/yt-dlp/yt-dlp.exe',

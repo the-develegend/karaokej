@@ -86,6 +86,6 @@ The PC’s network profile must be **Private** or other LAN devices will not con
 
 ## After setup
 
-Settings should list the three library roots and show whether ffmpeg, yt-dlp, and Demucs were found.
+On Settings, configure library folders (with Apply / Rebase when paths change) and verify whether ffmpeg, yt-dlp, and Demucs were found.
 
 Supported audio: `.mp3`, `.flac`, `.opus`.

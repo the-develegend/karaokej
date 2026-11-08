@@ -203,6 +203,7 @@ function Write-DotEnvFile {
   )
 
   $lines = @(
+    "# One-time seed for Settings library paths on first API start (optional):",
     "MUSIC_LIBRARY_PATH=$MusicLibraryPath",
     'DATABASE_PATH=./data/karaokej.sqlite',
     'PORT=3000',

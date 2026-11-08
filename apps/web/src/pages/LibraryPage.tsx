@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   FiChevronLeft,
   FiChevronRight,
@@ -16,6 +16,7 @@ import {
 } from 'react-icons/fi';
 import { LuDices, LuHistory } from 'react-icons/lu';
 import {
+  InvalidLibraryPathDto,
   LibrarySort,
   LibraryStatusDto,
   parseLibrarySort,
@@ -25,7 +26,7 @@ import {
   ScanIssueDto,
   TrackDto,
 } from '@karaokej/shared';
-import { api } from '../api';
+import { api, ApiError } from '../api';
 import { DraggableTrackRow } from '../components/DraggableTrackRow';
 import {
   activeFilterCount,
@@ -114,6 +115,9 @@ export function LibraryPage() {
   const [deleteFileTrack, setDeleteFileTrack] = useState<TrackDto | null>(null);
   const [coverTrack, setCoverTrack] = useState<TrackDto | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
+  const [scanInvalidPaths, setScanInvalidPaths] = useState<
+    InvalidLibraryPathDto[] | null
+  >(null);
   const limit = 15;
   const [selectedTracks, setSelectedTracks] = useState<
     Array<{ track: TrackDto; rank: number }>
@@ -448,12 +452,29 @@ export function LibraryPage() {
     }
   };
 
+  const runLibraryScan = async (acknowledgeInvalidRoots = false) => {
+    try {
+      await api.scan({ acknowledgeInvalidRoots });
+      await loadStatus();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        const body = err.body as { invalidLibraryPaths?: InvalidLibraryPathDto[] };
+        const invalid = body.invalidLibraryPaths ?? [];
+        if (invalid.length > 0) {
+          setScanInvalidPaths(invalid);
+          return;
+        }
+      }
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   const handleScanClick = () => {
     if (state.jobs.scan.running) {
       void api.cancelScan();
       return;
     }
-    confirmModal.request(MODAL_IDS.scanHelp, () => api.scan());
+    confirmModal.request(MODAL_IDS.scanHelp, () => void runLibraryScan());
   };
 
   const handleRefreshScanClick = () => {
@@ -735,9 +756,9 @@ export function LibraryPage() {
           body: (
             <ul className="modal-help-list">
               <li>
-                Walks each path in <code>MUSIC_LIBRARY_PATH</code> (comma-separated
-                for multiple libraries) for <code>.mp3</code>, <code>.flac</code>,
-                and <code>.opus</code> files.
+                Walks each library folder from{' '}
+                <Link to="/settings">Settings</Link> for <code>.mp3</code>,{' '}
+                <code>.flac</code>, and <code>.opus</code> files.
               </li>
               <li>
                 Reads tags and duration, updates the catalogue, and marks tracks
@@ -767,9 +788,9 @@ export function LibraryPage() {
                 and directory mtime skipping (often unreliable on Samba).
               </li>
               <li>
-                Changing <code>MUSIC_LIBRARY_PATH</code> (adding libraries, or
-                moving a root to a parent or child folder after restart) rebases
-                catalogue paths in batches before scanning.
+                After changing library folders on Settings, choose{' '}
+                <strong>Apply / Rebase</strong> so catalogue paths match before
+                you scan.
               </li>
               <li>Tracks appear in the library as each batch completes.</li>
               <li>
@@ -1097,6 +1118,32 @@ export function LibraryPage() {
         issues={scanIssues}
         onClose={() => setScanIssuesOpen(false)}
       />
+
+      <Modal
+        open={scanInvalidPaths != null}
+        title="Some library folders are unavailable"
+        confirmLabel="Scan anyway"
+        onConfirm={() => {
+          setScanInvalidPaths(null);
+          void runLibraryScan(true);
+        }}
+        onCancel={() => setScanInvalidPaths(null)}
+      >
+        <p>
+          These saved folders cannot be scanned. Scan will continue with the
+          folders that are reachable.
+        </p>
+        <ul className="modal-help-list">
+          {scanInvalidPaths?.map((entry) => (
+            <li key={entry.path}>
+              <code>{entry.path}</code> — {entry.reason}
+            </li>
+          ))}
+        </ul>
+        <p>
+          Fix or remove them on <Link to="/settings">Settings</Link>.
+        </p>
+      </Modal>
 
       <CoverArtModal
         track={coverTrack}

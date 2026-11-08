@@ -21,9 +21,11 @@ npm install
 npm run dev
 ```
 
-`MUSIC_LIBRARY_PATH` defaults to `./sample-music`. Point it at your music folder (comma-separated for multiple libraries), then open `http://localhost:5173`.
+Open `http://localhost:5173`, add your music folders on **Settings**, apply **Apply / Rebase** when you change them, then scan the library.
 
-Scan the library, optionally fetch lyrics, search and queue tracks, and open `/karaoke` for the singer display.
+Optionally fetch lyrics, search and queue tracks, and open `/karaoke` for the singer display.
+
+On first start, paths from legacy `MUSIC_LIBRARY_PATH` in `.env` (or desktop `data/config.json`) are copied into settings once if none are saved yet.
 
 Production:
 

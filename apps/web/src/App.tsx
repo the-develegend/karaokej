@@ -5,8 +5,6 @@ import { api } from './api';
 import { LibraryPage } from './pages/LibraryPage';
 import { KaraokePage } from './pages/KaraokePage';
 import { SettingsPage } from './pages/SettingsPage';
-import { SetupPage } from './pages/SetupPage';
-
 export function App() {
   const [status, setStatus] = useState<LibraryStatusDto | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -44,10 +42,6 @@ export function App() {
         </div>
       </div>
     );
-  }
-
-  if (!status.libraryConfigured) {
-    return <SetupPage onComplete={() => void refreshStatus()} />;
   }
 
   return (

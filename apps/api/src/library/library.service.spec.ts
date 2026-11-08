@@ -334,6 +334,8 @@ describe('LibraryService scan job recovery', () => {
 
   const mockConfig = {
     libraryPaths: [],
+    configuredLibraryPaths: [],
+    repoRoot: '/tmp',
     ytsaverPath: '/missing/ytsaver',
     ytdlpPath: '/missing/ytdlp',
     demucsPath: '/missing/demucs',

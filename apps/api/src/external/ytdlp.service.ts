@@ -153,12 +153,7 @@ export class YtdlpService {
   }
 
   private downloadsDirectory(): string {
-    const firstRoot = this.config.libraryPaths[0];
-    if (!firstRoot) {
-      throw new BadRequestException(
-        'MUSIC_LIBRARY_PATH is not configured. Set it in .env and restart.',
-      );
-    }
+    const firstRoot = this.library.requireLibraryRootsForDownload();
     return join(firstRoot, 'Downloads');
   }
 

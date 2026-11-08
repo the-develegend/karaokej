@@ -1,6 +1,6 @@
 # Electron Windows installer
 
-Karaokej ships as a Windows desktop app with an NSIS installer. The Electron window loads the same web UI; the Nest API still listens on **port 3000** for phones and the `/karaoke` display.
+Karaokej ships as a Windows desktop app with an NSIS installer. The Electron window loads the same web UI from the Nest API on **127.0.0.1** with an **ephemeral port** (OS-assigned). The resolved base URL is exposed to the renderer over IPC.
 
 ## Build from WSL
 
@@ -15,6 +15,8 @@ npm install
 npm run dist:win
 ```
 
+Each `dist:win` run bumps the patch segment in `apps/desktop/package.json` (and the repo root `package.json`) so the installer version increases (`0.1.0` → `0.1.1`, …).
+
 Output: `release/Karaokej-Setup-<version>.exe`
 
 The setup exe cannot be run under WSL. Verify the build finished, then test install, firewall, yt-dlp update, and Demucs on a Windows PC.
@@ -28,9 +30,13 @@ The setup exe cannot be run under WSL. Verify the build finished, then test inst
 | yt-dlp | Yes | Self-updates daily via `yt-dlp -U` |
 | Demucs (CPU, offline) | Optional | Wizard prompt at install; ~2 GB inside the setup exe |
 
-Portable data lives next to `Karaokej.exe`: `data/karaokej.sqlite`, `data/covers/`, `data/karaoke-stems/`, `data/config.json` (music library paths).
+Portable data lives next to `Karaokej.exe`: `data/karaokej.sqlite`, `data/covers/`, `data/karaoke-stems/`. Music library folders are stored in settings inside the database (legacy `data/config.json` or `MUSIC_LIBRARY_PATH` may seed them once on first start).
 
 **Node.js:** not required on the PC. The app ships Electron (Chromium + Node). The API runs via `ELECTRON_RUN_AS_NODE` on `Karaokej.exe`.
+
+### Startup
+
+The API ships as two bundled files (`resources/karaokej-server/apps/api/dist/main.js` and `scan.worker.js`, built by `scripts/bundle-api.mjs`) instead of `node_modules`, because Windows scans every newly installed file on its first read. A startup screen shows while the API starts. Each launch writes step timings and the API's startup output to `%APPDATA%\Karaokej\startup.log`.
 
 ### NSIS install logs (Windows)
 
