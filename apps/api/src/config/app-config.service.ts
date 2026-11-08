@@ -12,9 +12,11 @@ import {
   SETTING_TOOL_PATH_YTSAVER,
   TOOL_PATH_SETTING_KEYS,
 } from '../settings/tool-path-keys';
+import { SETTING_LIBRARY_PATHS } from '../settings/library-path-keys';
 import {
   buildLibraryPathLayout,
-  parseLibraryPathEntries,
+  parseLibraryPathsSetting,
+  resolveConfiguredLibraryPaths,
   resolveUnderLibraries,
   type LibraryPathLayout,
 } from '../library/library-paths';
@@ -37,6 +39,7 @@ function envFlag(value: string | undefined): boolean {
 @Injectable()
 export class AppConfigService {
   private libraryLayoutCache: LibraryPathLayout | null = null;
+  private libraryPathsSettingCache: string[] | null = null;
   private toolPathOverrideCache: Map<string, string> | null = null;
 
   constructor(private readonly config: ConfigService) {}
@@ -58,6 +61,15 @@ export class AppConfigService {
     this.libraryLayoutCache = null;
   }
 
+  clearLibraryPathsCache(): void {
+    this.libraryPathsSettingCache = null;
+  }
+
+  /** Paths as saved in settings (not resolved to absolute). */
+  get configuredLibraryPaths(): string[] {
+    return this.readLibraryPathsSetting();
+  }
+
   get libraryPaths(): string[] {
     return this.libraryLayout.roots;
   }
@@ -68,17 +80,55 @@ export class AppConfigService {
 
   get libraryLayout(): LibraryPathLayout {
     if (!this.libraryLayoutCache) {
-      let musicPath = this.config.get<string>('MUSIC_LIBRARY_PATH');
-      if (!musicPath?.trim() && process.env.KARAOKEJ_ROOT?.trim()) {
-        const portable = readPortableConfig(process.env.KARAOKEJ_ROOT);
-        if (portable?.libraryPaths.length) {
-          musicPath = portable.libraryPaths.join(',');
-        }
-      }
-      const roots = parseLibraryPathEntries(musicPath, this.repoRoot);
+      const configured = this.readLibraryPathsSetting();
+      const roots = resolveConfiguredLibraryPaths(configured, this.repoRoot);
       this.libraryLayoutCache = buildLibraryPathLayout(roots);
     }
     return this.libraryLayoutCache;
+  }
+
+  /** One-time migration: read legacy env / portable entries (not used after seed). */
+  legacyLibraryPathSeedEntries(): string[] {
+    let musicPath = this.config.get<string>('MUSIC_LIBRARY_PATH');
+    if (!musicPath?.trim() && process.env.KARAOKEJ_ROOT?.trim()) {
+      const portable = readPortableConfig(process.env.KARAOKEJ_ROOT);
+      if (portable?.libraryPaths.length) {
+        return portable.libraryPaths.map((p) => p.trim()).filter(Boolean);
+      }
+    }
+    if (!musicPath?.trim()) {
+      return [];
+    }
+    return musicPath
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  private readLibraryPathsSetting(): string[] {
+    if (this.libraryPathsSettingCache) {
+      return this.libraryPathsSettingCache;
+    }
+    const paths: string[] = [];
+    try {
+      const dbPath = this.databasePath;
+      if (!existsSync(dbPath)) {
+        this.libraryPathsSettingCache = paths;
+        return paths;
+      }
+      const db = new DatabaseSync(dbPath, { readOnly: true });
+      const row = db
+        .prepare(`SELECT value FROM app_settings WHERE key = ?`)
+        .get(SETTING_LIBRARY_PATHS) as { value: string } | undefined;
+      db.close();
+      if (row?.value) {
+        paths.push(...parseLibraryPathsSetting(row.value));
+      }
+    } catch {
+      /* use empty */
+    }
+    this.libraryPathsSettingCache = paths;
+    return paths;
   }
 
   get databasePath(): string {

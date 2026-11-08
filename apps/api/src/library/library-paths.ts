@@ -11,18 +11,10 @@ function normalizeRoot(path: string): string {
   return resolve(path);
 }
 
-/** Split comma-separated env value into resolved, deduped, non-nested roots. */
-export function parseLibraryPathEntries(
-  raw: string | undefined,
+function resolvePathEntries(
+  entries: string[],
   repoRoot: string,
 ): string[] {
-  if (!raw?.trim()) {
-    return [];
-  }
-  const entries = raw
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
   const resolved = entries.map((entry) =>
     isAbsolute(entry) ? resolve(entry) : resolve(repoRoot, entry),
   );
@@ -37,6 +29,58 @@ export function parseLibraryPathEntries(
     }
   }
   return collapseNestedRoots(unique);
+}
+
+/** Split comma-separated env value into resolved, deduped, non-nested roots. */
+export function parseLibraryPathEntries(
+  raw: string | undefined,
+  repoRoot: string,
+): string[] {
+  if (!raw?.trim()) {
+    return [];
+  }
+  const entries = raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return resolvePathEntries(entries, repoRoot);
+}
+
+/** Resolve configured path strings from settings into catalogue roots. */
+export function resolveConfiguredLibraryPaths(
+  entries: string[],
+  repoRoot: string,
+): string[] {
+  const trimmed = entries.map((entry) => entry.trim()).filter(Boolean);
+  if (trimmed.length === 0) {
+    return [];
+  }
+  return resolvePathEntries(trimmed, repoRoot);
+}
+
+export function parseLibraryPathsSetting(
+  raw: string | null | undefined,
+): string[] {
+  if (!raw?.trim()) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      Array.isArray(parsed) &&
+      parsed.every((entry) => typeof entry === 'string')
+    ) {
+      return parsed.map((entry) => entry.trim()).filter(Boolean);
+    }
+  } catch {
+    /* fall through */
+  }
+  return [];
+}
+
+export function serializeLibraryPathsSetting(paths: string[]): string {
+  const cleaned = paths.map((p) => p.trim()).filter(Boolean);
+  return JSON.stringify(cleaned);
 }
 
 /** Drop roots nested under another configured root (parent walk covers them). */

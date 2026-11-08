@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import {
   AppSettingsDto,
   DEFAULT_RATING_BLUE,
@@ -16,6 +16,22 @@ import {
   SETTING_TOOL_PATH_YTDLP_NODE,
   SETTING_TOOL_PATH_YTSAVER,
 } from './tool-path-keys';
+import {
+  SETTING_LIBRARY_PATHS,
+  SETTING_MAIN_LIBRARY_PATH,
+} from './library-path-keys';
+import { SETTING_METADATA_PROVIDERS } from './metadata-provider-keys';
+import type { MetadataProviderId } from '@karaokej/shared';
+import {
+  mergeMetadataProvidersPatch,
+  readStoredMetadataProviders,
+  setProviderEnabled,
+  storedToPublicDto,
+  writeStoredMetadataProviders,
+} from './metadata-providers-settings';
+
+export { SETTING_LIBRARY_PATHS } from './library-path-keys';
+export { SETTING_MAIN_LIBRARY_PATH } from './library-path-keys';
 
 export const SETTING_REMOVE_PLAYED_FROM_QUEUE = 'remove_played_from_queue';
 export const SETTING_CROSSFADE_SECONDS = 'crossfade_seconds';
@@ -29,14 +45,41 @@ const DEFAULT_CROSSFADE_PREF = 5;
 const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
 
 @Injectable()
-export class SettingsService {
+export class SettingsService implements OnModuleInit {
   constructor(
     private readonly db: DbService,
     private readonly appConfig: AppConfigService,
   ) {}
 
+  onModuleInit(): void {
+    this.seedLibraryPathsFromLegacy();
+  }
+
+  getMetadataProvidersStored() {
+    return readStoredMetadataProviders(
+      this.db.raw,
+      SETTING_METADATA_PROVIDERS,
+    );
+  }
+
+  writeMetadataProvidersStored(
+    stored: ReturnType<typeof readStoredMetadataProviders>,
+  ): void {
+    writeStoredMetadataProviders(
+      this.db.raw,
+      SETTING_METADATA_PROVIDERS,
+      stored,
+    );
+  }
+
+  enableMetadataProvider(id: MetadataProviderId): void {
+    const next = setProviderEnabled(this.getMetadataProvidersStored(), id, true);
+    this.writeMetadataProvidersStored(next);
+  }
+
   get(): AppSettingsDto {
     return {
+      metadataProviders: storedToPublicDto(this.getMetadataProvidersStored()),
       removePlayedFromQueue: this.getBoolean(SETTING_REMOVE_PLAYED_FROM_QUEUE),
       crossfadeSeconds: this.getInt(SETTING_CROSSFADE_SECONDS, 0, 0, 10),
       crossfadePrefSeconds: this.getInt(
@@ -58,11 +101,34 @@ export class SettingsService {
       ytdlpNodePath: this.getOptionalString(SETTING_TOOL_PATH_YTDLP_NODE),
       ytsaverPath: this.getOptionalString(SETTING_TOOL_PATH_YTSAVER),
       demucsPath: this.getOptionalString(SETTING_TOOL_PATH_DEMUCS),
+      libraryPaths: this.getLibraryPaths(),
+      mainLibraryPath: this.getEffectiveMainLibraryPath(),
     };
+  }
+
+  getLibraryPaths(): string[] {
+    return this.readLibraryPathsRaw();
+  }
+
+  getEffectiveMainLibraryPath(): string | null {
+    const paths = this.readLibraryPathsRaw();
+    if (paths.length === 0) {
+      return null;
+    }
+    const stored = this.readMainLibraryPathRaw();
+    if (stored && paths.includes(stored)) {
+      return stored;
+    }
+    return paths[0] ?? null;
+  }
+
+  getStoredMainLibraryPath(): string | null {
+    return this.readMainLibraryPathRaw();
   }
 
   patch(partial: Partial<AppSettingsDto>): AppSettingsDto {
     let toolPathsChanged = false;
+    let libraryPathsChanged = false;
     if (partial.removePlayedFromQueue !== undefined) {
       this.setBoolean(SETTING_REMOVE_PLAYED_FROM_QUEUE, partial.removePlayedFromQueue);
     }
@@ -117,10 +183,123 @@ export class SettingsService {
       this.setOptionalString(SETTING_TOOL_PATH_DEMUCS, partial.demucsPath);
       toolPathsChanged = true;
     }
+    if (partial.libraryPaths !== undefined) {
+      this.setLibraryPaths(partial.libraryPaths);
+      libraryPathsChanged = true;
+      this.reconcileMainLibraryPathAfterLibraryPathsChange();
+    }
+    if (partial.mainLibraryPath !== undefined) {
+      this.setMainLibraryPath(partial.mainLibraryPath);
+    }
+    if (partial.metadataProviders !== undefined) {
+      const merged = mergeMetadataProvidersPatch(
+        this.getMetadataProvidersStored(),
+        partial.metadataProviders,
+      );
+      this.writeMetadataProvidersStored(merged);
+    }
     if (toolPathsChanged) {
       this.appConfig.clearToolPathOverrideCache();
     }
+    if (libraryPathsChanged) {
+      this.appConfig.clearLibraryLayoutCache();
+      this.appConfig.clearLibraryPathsCache();
+    }
     return this.get();
+  }
+
+  private seedLibraryPathsFromLegacy(): void {
+    if (this.readLibraryPathsRaw().length > 0) {
+      return;
+    }
+    const legacy = this.appConfig.legacyLibraryPathSeedEntries();
+    if (legacy.length === 0) {
+      return;
+    }
+    this.setLibraryPaths(legacy);
+    this.appConfig.clearLibraryLayoutCache();
+    this.appConfig.clearLibraryPathsCache();
+  }
+
+  private readLibraryPathsRaw(): string[] {
+    const row = this.db.raw
+      .prepare(`SELECT value FROM app_settings WHERE key = ?`)
+      .get(SETTING_LIBRARY_PATHS) as { value: string } | undefined;
+    if (!row?.value?.trim()) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(row.value) as unknown;
+      if (
+        Array.isArray(parsed) &&
+        parsed.every((entry) => typeof entry === 'string')
+      ) {
+        return parsed.map((entry) => entry.trim()).filter(Boolean);
+      }
+    } catch {
+      return [];
+    }
+    return [];
+  }
+
+  private setLibraryPaths(paths: string[]): void {
+    const cleaned = paths.map((p) => p.trim()).filter(Boolean);
+    if (cleaned.length === 0) {
+      this.db.raw
+        .prepare(`DELETE FROM app_settings WHERE key = ?`)
+        .run(SETTING_LIBRARY_PATHS);
+      this.db.raw
+        .prepare(`DELETE FROM app_settings WHERE key = ?`)
+        .run(SETTING_MAIN_LIBRARY_PATH);
+      return;
+    }
+    this.db.raw
+      .prepare(
+        `INSERT INTO app_settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      )
+      .run(SETTING_LIBRARY_PATHS, JSON.stringify(cleaned));
+  }
+
+  private reconcileMainLibraryPathAfterLibraryPathsChange(): void {
+    const paths = this.readLibraryPathsRaw();
+    if (paths.length === 0) {
+      this.db.raw
+        .prepare(`DELETE FROM app_settings WHERE key = ?`)
+        .run(SETTING_MAIN_LIBRARY_PATH);
+      return;
+    }
+    const stored = this.readMainLibraryPathRaw();
+    if (stored && paths.includes(stored)) {
+      return;
+    }
+    this.setMainLibraryPath(paths[0]!);
+  }
+
+  private readMainLibraryPathRaw(): string | null {
+    const row = this.db.raw
+      .prepare(`SELECT value FROM app_settings WHERE key = ?`)
+      .get(SETTING_MAIN_LIBRARY_PATH) as { value: string } | undefined;
+    const trimmed = row?.value?.trim();
+    return trimmed || null;
+  }
+
+  private setMainLibraryPath(path: string | null): void {
+    const paths = this.readLibraryPathsRaw();
+    if (paths.length === 0) {
+      this.db.raw
+        .prepare(`DELETE FROM app_settings WHERE key = ?`)
+        .run(SETTING_MAIN_LIBRARY_PATH);
+      return;
+    }
+    const trimmed = path?.trim() ?? '';
+    const chosen = trimmed && paths.includes(trimmed) ? trimmed : paths[0]!;
+    this.db.raw
+      .prepare(
+        `INSERT INTO app_settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      )
+      .run(SETTING_MAIN_LIBRARY_PATH, chosen);
   }
 
   isRemovePlayedFromQueueEnabled(): boolean {

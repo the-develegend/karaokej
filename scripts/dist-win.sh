@@ -5,6 +5,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+bash scripts/bump-release-version.sh
+
 bash scripts/patch-electron-builder-linux-nsis.sh
 
 bash scripts/fetch-vendor-win.sh

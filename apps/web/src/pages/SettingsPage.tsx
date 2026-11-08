@@ -18,7 +18,10 @@ import {
 import { api } from '../api';
 import { useSession } from '../session/SessionProvider';
 import { SettingsTagsSection } from '../components/SettingsTagsSection';
+import { SettingsLibraryPathsSection } from '../components/SettingsLibraryPathsSection';
 import { SettingsToolPathsSection } from '../components/SettingsToolPathsSection';
+import { SettingsMetadataProvidersSection } from '../components/SettingsMetadataProvidersSection';
+import { SettingsGroup } from '../components/SettingsGroup';
 
 const RATING_COLOR_FIELDS: Array<{
   key: keyof Pick<
@@ -99,126 +102,150 @@ export function SettingsPage() {
       </header>
 
       <main className="settings-page">
-        <SettingsTagsSection />
+        <SettingsGroup title="Music library folders">
+          <SettingsLibraryPathsSection />
+        </SettingsGroup>
 
-        <section className="settings-panel">
-          <h2>Queue</h2>
-          <label className="settings-toggle">
-            <input
-              type="checkbox"
-              checked={state.settings.removePlayedFromQueue}
-              onChange={(event) => handleRemovePlayedChange(event.target.checked)}
-            />
-            <span>Remove played songs from the Queue List</span>
-          </label>
-          <p className="settings-copy">
-            When enabled, a song is removed from the queue after it finishes playing
-            naturally. Skipped songs stay in the queue. Audio files are not deleted.
-          </p>
-          {settingsError && <p className="settings-feedback error">{settingsError}</p>}
-        </section>
+        <SettingsGroup title="Tags">
+          <SettingsTagsSection />
+        </SettingsGroup>
 
-        <section className="settings-panel">
-          <h2>Playback</h2>
-          <label className="karaoke-slider-label">
-            Crossfade
-            <input
-              className="karaoke-slider"
-              type="range"
-              min={0}
-              max={10}
-              step={1}
-              value={state.settings.crossfadeSeconds}
-              onChange={(event) => handleCrossfadeChange(Number(event.target.value))}
-              aria-valuetext={crossfadeLabel}
-            />
-            <span className="karaoke-slider-value">{crossfadeLabel}</span>
-          </label>
-          <p className="settings-copy">
-            When enabled, the next queued song starts fading in before the current
-            song ends. Set to 0 to turn off. Use the crossfade button in the
-            player bar to toggle quickly; it stays on for every song until you
-            turn it off.
-          </p>
-          {settingsError && <p className="settings-feedback error">{settingsError}</p>}
-        </section>
+        <SettingsGroup
+          title="Metadata providers"
+          lead="Configure online metadata sources for Edit metadata search. Order controls which provider is tried first."
+        >
+          <SettingsMetadataProvidersSection providers={state.settings.metadataProviders} />
+        </SettingsGroup>
 
-        <section className="settings-panel">
-          <h2>Star rating colors</h2>
-          <p className="settings-copy">
-            Rating ranges are fixed. Adjust the four colors used for library stars.
-          </p>
-          <ul className="settings-color-list">
-            {RATING_COLOR_FIELDS.map(({ key, label, ranges }) => (
-              <li key={key}>
-                <label className="settings-color-row">
-                  <span className="settings-color-copy">
-                    <strong>{label}</strong>
-                    <span className="settings-color-ranges">{ranges}</span>
-                  </span>
+        <SettingsGroup title="Queue">
+          <section className="settings-panel">
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={state.settings.removePlayedFromQueue}
+                onChange={(event) => handleRemovePlayedChange(event.target.checked)}
+              />
+              <span>Remove played songs from the Queue List</span>
+            </label>
+            <p className="settings-copy">
+              When enabled, a song is removed from the queue after it finishes playing
+              naturally. Skipped songs stay in the queue. Audio files are not deleted.
+            </p>
+            {settingsError && <p className="settings-feedback error">{settingsError}</p>}
+          </section>
+        </SettingsGroup>
+
+        <SettingsGroup title="Playback">
+          <section className="settings-panel">
+            <label className="karaoke-slider-label">
+              Crossfade
+              <input
+                className="karaoke-slider"
+                type="range"
+                min={0}
+                max={10}
+                step={1}
+                value={state.settings.crossfadeSeconds}
+                onChange={(event) => handleCrossfadeChange(Number(event.target.value))}
+                aria-valuetext={crossfadeLabel}
+              />
+              <span className="karaoke-slider-value">{crossfadeLabel}</span>
+            </label>
+            <p className="settings-copy">
+              When enabled, the next queued song starts fading in before the current
+              song ends. Set to 0 to turn off. Use the crossfade button in the
+              player bar to toggle quickly; it stays on for every song until you
+              turn it off.
+            </p>
+            {settingsError && <p className="settings-feedback error">{settingsError}</p>}
+          </section>
+        </SettingsGroup>
+
+        <SettingsGroup title="Star rating colors">
+          <section className="settings-panel">
+            <p className="settings-copy">
+              Rating ranges are fixed. Adjust the four colors used for library stars.
+            </p>
+            <ul className="settings-color-list">
+              {RATING_COLOR_FIELDS.map(({ key, label, ranges }) => (
+                <li key={key}>
+                  <label className="settings-color-row">
+                    <span className="settings-color-copy">
+                      <strong>{label}</strong>
+                      <span className="settings-color-ranges">{ranges}</span>
+                    </span>
+                    <input
+                      type="color"
+                      value={state.settings[key]}
+                      onChange={(event) =>
+                        handleRatingColorChange(key, event.target.value)
+                      }
+                      aria-label={`${label} star color`}
+                    />
+                  </label>
+                </li>
+              ))}
+            </ul>
+            {settingsError && <p className="settings-feedback error">{settingsError}</p>}
+          </section>
+        </SettingsGroup>
+
+        <SettingsGroup title="Karaoke background">
+          <section className="settings-panel">
+            <fieldset className="settings-fieldset">
+              <legend className="sr-only">Karaoke background</legend>
+              {BACKGROUND_MODE_OPTIONS.map((option) => (
+                <label key={option} className="settings-toggle">
                   <input
-                    type="color"
-                    value={state.settings[key]}
-                    onChange={(event) =>
-                      handleRatingColorChange(key, event.target.value)
-                    }
-                    aria-label={`${label} star color`}
+                    type="radio"
+                    name="karaoke-background"
+                    value={option}
+                    checked={backgroundMode === option}
+                    onChange={() => handleBackgroundModeChange(option)}
                   />
+                  <span>{BACKGROUND_MODE_LABELS[option]}</span>
                 </label>
-              </li>
-            ))}
-          </ul>
-          {settingsError && <p className="settings-feedback error">{settingsError}</p>}
-        </section>
+              ))}
+            </fieldset>
+            <p className="settings-copy">
+              Applies to the karaoke display on this device. Shuffle picks a random
+              animation for each song.
+            </p>
+          </section>
+        </SettingsGroup>
 
-        <section className="settings-panel">
-          <h2>Karaoke background</h2>
-          <fieldset className="settings-fieldset">
-            <legend className="sr-only">Karaoke background</legend>
-            {BACKGROUND_MODE_OPTIONS.map((option) => (
-              <label key={option} className="settings-toggle">
-                <input
-                  type="radio"
-                  name="karaoke-background"
-                  value={option}
-                  checked={backgroundMode === option}
-                  onChange={() => handleBackgroundModeChange(option)}
-                />
-                <span>{BACKGROUND_MODE_LABELS[option]}</span>
-              </label>
-            ))}
-          </fieldset>
-          <p className="settings-copy">
-            Applies to the karaoke display on this device. Shuffle picks a random
-            animation for each song.
-          </p>
-        </section>
+        <SettingsGroup
+          title="External tools"
+          lead="Optional paths for ffmpeg, yt-dlp, Demucs, and related helpers."
+          layout="cards-2"
+        >
+          <SettingsToolPathsSection savedPaths={state.settings} />
+        </SettingsGroup>
 
-        <SettingsToolPathsSection savedPaths={state.settings} />
-
-        <section className="settings-panel settings-panel--wide">
-          <h2>Help dialogs</h2>
-          <p className="settings-copy">
-            Help dialogs can be hidden with &ldquo;Do not show again&rdquo;. Reset
-            them here to show the next time you start a scan or lyrics fetch.
-          </p>
-          <ul className="settings-list">
-            {KNOWN_MODALS.map((modal) => (
-              <li key={modal.id}>
-                <span>{modal.label}</span>
-                <span className={`badge ${dismissedIds.includes(modal.id) ? 'warn' : 'ok'}`}>
-                  {dismissedIds.includes(modal.id) ? 'Hidden' : 'Shown'}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <div className="settings-actions">
-            <button type="button" onClick={handleReset}>
-              Reset dismissed dialogs
-            </button>
-            {resetMessage && <p className="settings-feedback">{resetMessage}</p>}
-          </div>
-        </section>
+        <SettingsGroup title="Help dialogs">
+          <section className="settings-panel">
+            <p className="settings-copy">
+              Help dialogs can be hidden with &ldquo;Do not show again&rdquo;. Reset
+              them here to show the next time you start a scan or lyrics fetch.
+            </p>
+            <ul className="settings-list">
+              {KNOWN_MODALS.map((modal) => (
+                <li key={modal.id}>
+                  <span>{modal.label}</span>
+                  <span className={`badge ${dismissedIds.includes(modal.id) ? 'warn' : 'ok'}`}>
+                    {dismissedIds.includes(modal.id) ? 'Hidden' : 'Shown'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="settings-actions">
+              <button type="button" onClick={handleReset}>
+                Reset dismissed dialogs
+              </button>
+              {resetMessage && <p className="settings-feedback">{resetMessage}</p>}
+            </div>
+          </section>
+        </SettingsGroup>
       </main>
 
       <PlayerBar />

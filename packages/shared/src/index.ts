@@ -89,6 +89,10 @@ export interface TrackMetadataDto {
   rating: number;
   durationMs: number | null;
   format: AudioFormat;
+  musicbrainzArtistId: string | null;
+  musicbrainzRecordingId: string | null;
+  musicbrainzReleaseId: string | null;
+  isrc: string | null;
 }
 
 export interface TrackMetadataUpdateDto {
@@ -100,6 +104,146 @@ export interface TrackMetadataUpdateDto {
   year?: number | null;
   genres?: string[];
   rating?: number;
+  musicbrainzArtistId?: string | null;
+  musicbrainzRecordingId?: string | null;
+  musicbrainzReleaseId?: string | null;
+  isrc?: string | null;
+}
+
+export const METADATA_SEARCH_PROVIDER_IDS = [
+  'musicbrainz',
+  'discogs',
+  'lastfm',
+  'gnudb',
+  'spotify',
+] as const;
+
+export const METADATA_SETTINGS_PROVIDER_IDS = [
+  ...METADATA_SEARCH_PROVIDER_IDS,
+  'acoustid',
+] as const;
+
+export type MetadataSearchProviderId =
+  (typeof METADATA_SEARCH_PROVIDER_IDS)[number];
+
+export type MetadataProviderId = (typeof METADATA_SETTINGS_PROVIDER_IDS)[number];
+
+export const DEFAULT_METADATA_PROVIDER_ORDER: MetadataProviderId[] = [
+  'musicbrainz',
+  'discogs',
+  'lastfm',
+  'gnudb',
+  'spotify',
+  'acoustid',
+];
+
+export function defaultMetadataProvidersSettings(): MetadataProvidersSettingsDto {
+  return {
+    order: [...DEFAULT_METADATA_PROVIDER_ORDER],
+    musicbrainz: { enabled: false, contactEmail: '' },
+    discogs: { enabled: false, token: '', tokenSaved: false },
+    lastfm: { enabled: false, apiKey: '', apiKeySaved: false },
+    gnudb: { enabled: false, contactEmail: '' },
+    spotify: {
+      enabled: false,
+      clientId: '',
+      clientSecret: '',
+      clientSecretSaved: false,
+    },
+    acoustid: { enabled: false, apiKey: '', apiKeySaved: false },
+  };
+}
+
+export interface MetadataProviderMusicBrainzConfigDto {
+  enabled: boolean;
+  contactEmail: string;
+}
+
+export interface MetadataProviderDiscogsConfigDto {
+  enabled: boolean;
+  /** Empty when masked on GET; omit or leave empty on PATCH to keep saved token. */
+  token: string;
+  tokenSaved: boolean;
+}
+
+export interface MetadataProviderLastFmConfigDto {
+  enabled: boolean;
+  apiKey: string;
+  apiKeySaved: boolean;
+}
+
+export interface MetadataProviderGnuDbConfigDto {
+  enabled: boolean;
+  contactEmail: string;
+}
+
+export interface MetadataProviderSpotifyConfigDto {
+  enabled: boolean;
+  clientId: string;
+  clientSecret: string;
+  clientSecretSaved: boolean;
+}
+
+export interface MetadataProviderAcoustIdConfigDto {
+  enabled: boolean;
+  apiKey: string;
+  apiKeySaved: boolean;
+}
+
+export interface MetadataProvidersSettingsDto {
+  order: MetadataProviderId[];
+  musicbrainz: MetadataProviderMusicBrainzConfigDto;
+  discogs: MetadataProviderDiscogsConfigDto;
+  lastfm: MetadataProviderLastFmConfigDto;
+  gnudb: MetadataProviderGnuDbConfigDto;
+  spotify: MetadataProviderSpotifyConfigDto;
+  acoustid: MetadataProviderAcoustIdConfigDto;
+}
+
+export type MetadataProviderTriedStatus =
+  | 'skipped'
+  | 'no_results'
+  | 'ok'
+  | 'error';
+
+export interface MetadataProviderTriedDto {
+  id: MetadataSearchProviderId;
+  label: string;
+  status: MetadataProviderTriedStatus;
+  message?: string;
+}
+
+export interface MetadataSearchHitDto {
+  providerId: MetadataSearchProviderId;
+  providerLabel: string;
+  externalUrl: string | null;
+  title: string;
+  artist: string | null;
+  album: string | null;
+  albumArtist: string | null;
+  trackNo: number | null;
+  year: number | null;
+  genres: string[];
+  musicbrainzArtistId: string | null;
+  musicbrainzRecordingId: string | null;
+  musicbrainzReleaseId: string | null;
+  isrc: string | null;
+}
+
+export interface MetadataSearchRequestDto {
+  query?: string;
+  providerIds?: MetadataSearchProviderId[];
+}
+
+export interface MetadataSearchResponseDto {
+  hits: MetadataSearchHitDto[];
+  triedProviders: MetadataProviderTriedDto[];
+  queryUsed: string;
+}
+
+export interface MetadataProviderTestResultDto {
+  ok: boolean;
+  message: string;
 }
 
 export interface LyricLine {
@@ -165,8 +309,18 @@ export interface ScanIssueDto {
   message: string;
 }
 
-export interface LibrarySetupDto {
-  libraryPaths: string[];
+export interface InvalidLibraryPathDto {
+  path: string;
+  reason: string;
+}
+
+export interface LibraryScanBodyDto {
+  acknowledgeInvalidRoots?: boolean;
+}
+
+export interface LibraryRebaseResultDto {
+  message: string;
+  libraryStatus: LibraryStatusDto;
 }
 
 export interface LibraryStatusDto {
@@ -174,6 +328,8 @@ export interface LibraryStatusDto {
   withLyrics: number;
   libraryPaths: string[];
   libraryConfigured: boolean;
+  rebasePending: boolean;
+  invalidLibraryPaths: InvalidLibraryPathDto[];
   lastFullScanAt: number | null;
   scanIssues: ScanIssueDto[];
   scan: JobStatusDto;
@@ -300,6 +456,7 @@ export interface ToolPathsStatusDto {
 }
 
 export interface AppSettingsDto {
+  metadataProviders: MetadataProvidersSettingsDto;
   removePlayedFromQueue: boolean;
   /** 0 = off, 1–10 = crossfade duration in seconds */
   crossfadeSeconds: number;
@@ -316,6 +473,21 @@ export interface AppSettingsDto {
   ytdlpNodePath: string;
   ytsaverPath: string;
   demucsPath: string;
+  /** Music library roots as entered on Settings (empty = none configured). */
+  libraryPaths: string[];
+  /** Catalogue root used when organizing files (must be one of libraryPaths). */
+  mainLibraryPath: string | null;
+}
+
+export interface TrackMovePreviewDto {
+  fromAbsolute: string;
+  toAbsolute: string;
+  conflict: boolean;
+  sidecars: string[];
+}
+
+export interface TrackMoveExecuteDto {
+  removeEmptyDirs?: boolean;
 }
 
 export interface SessionStateDto {

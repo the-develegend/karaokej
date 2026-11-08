@@ -18,11 +18,18 @@ import { LibraryService } from '../library/library.service';
 import { LyricsService } from '../lyrics/lyrics.service';
 import { RatingService } from '../rating/rating.service';
 import { TrackMetadataService } from '../metadata/track-metadata.service';
+import { TrackMoveService } from '../library/track-move.service';
 import { SeparationService } from '../karaoke/separation.service';
 import { StreamService } from '../stream/stream.service';
 import { NotFoundException } from '@nestjs/common';
 import { ArtistBioService } from '../artist-bio/artist-bio.service';
-import { ArtistBioChooseDto, parseLibrarySort, parseTagName } from '@karaokej/shared';
+import {
+  ArtistBioChooseDto,
+  MetadataSearchRequestDto,
+  parseLibrarySort,
+  parseTagName,
+} from '@karaokej/shared';
+import { MetadataSearchService } from '../metadata-search/metadata-search.service';
 import { TagsService } from '../tags/tags.service';
 
 function tagKeysFromQuery(tags?: string | string[]): string[] {
@@ -48,6 +55,8 @@ export class TracksController {
     private readonly stream: StreamService,
     private readonly ratings: RatingService,
     private readonly metadata: TrackMetadataService,
+    private readonly metadataSearch: MetadataSearchService,
+    private readonly trackMove: TrackMoveService,
     private readonly separation: SeparationService,
     private readonly artistBio: ArtistBioService,
     private readonly tags: TagsService,
@@ -175,6 +184,28 @@ export class TracksController {
     @Body() body: Record<string, unknown>,
   ) {
     return this.metadata.updateMetadata(id, body);
+  }
+
+  @Post(':id/metadata/search')
+  searchMetadata(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: MetadataSearchRequestDto,
+  ) {
+    return this.metadataSearch.searchTrack(id, body.query, body.providerIds);
+  }
+
+  @Post(':id/move/preview')
+  previewMove(@Param('id', ParseIntPipe) id: number) {
+    return this.trackMove.previewMove(id);
+  }
+
+  @Post(':id/move')
+  executeMove(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { removeEmptyDirs?: unknown },
+  ) {
+    const removeEmptyDirs = body?.removeEmptyDirs !== false;
+    return this.trackMove.executeMove(id, removeEmptyDirs);
   }
 
   @Get(':id/path')

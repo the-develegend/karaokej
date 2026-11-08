@@ -23,6 +23,10 @@ describe('metadata-fields', () => {
       year: null,
       genres: ['Pop', 'Rock'],
       rating: 10,
+      musicbrainzArtistId: null,
+      musicbrainzRecordingId: null,
+      musicbrainzReleaseId: null,
+      isrc: null,
     });
   });
 
@@ -38,6 +42,9 @@ describe('metadata-fields', () => {
       year: 1999,
       genres: ['Pop'],
       musicbrainzArtistId: null,
+      musicbrainzRecordingId: null,
+      musicbrainzReleaseId: null,
+      isrc: null,
       moodValues: [],
     });
     const b = { ...a, genres: ['Pop'] };

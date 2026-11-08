@@ -1,3 +1,4 @@
+import { defaultMetadataProvidersSettings } from '@karaokej/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   SETTING_CROSSFADE_SECONDS,
@@ -15,12 +16,18 @@ describe('SettingsService', () => {
   let cleanup: () => void;
   let settings: SettingsService;
   let clearToolPathOverrideCache: ReturnType<typeof vi.fn>;
+  let clearLibraryLayoutCache: ReturnType<typeof vi.fn>;
+  let clearLibraryPathsCache: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     ({ db, cleanup } = createTestDb());
     clearToolPathOverrideCache = vi.fn();
+    clearLibraryLayoutCache = vi.fn();
+    clearLibraryPathsCache = vi.fn();
     settings = new SettingsService(db as never, {
       clearToolPathOverrideCache,
+      clearLibraryLayoutCache,
+      clearLibraryPathsCache,
     } as never);
   });
 
@@ -30,6 +37,7 @@ describe('SettingsService', () => {
 
   it('defaults crossfade to off with a 5 second preference', () => {
     expect(settings.get()).toEqual({
+      metadataProviders: defaultMetadataProvidersSettings(),
       removePlayedFromQueue: false,
       crossfadeSeconds: 0,
       crossfadePrefSeconds: 5,
@@ -43,7 +51,19 @@ describe('SettingsService', () => {
       ytdlpNodePath: '',
       ytsaverPath: '',
       demucsPath: '',
+      libraryPaths: [],
+      mainLibraryPath: null,
     });
+  });
+
+  it('persists library paths and clears layout cache', () => {
+    settings.patch({ libraryPaths: ['./music', '/abs/lib'] });
+    expect(settings.get().libraryPaths).toEqual(['./music', '/abs/lib']);
+    expect(settings.get().mainLibraryPath).toBe('./music');
+    expect(clearLibraryLayoutCache).toHaveBeenCalled();
+    expect(clearLibraryPathsCache).toHaveBeenCalled();
+    settings.patch({ libraryPaths: [] });
+    expect(settings.get().libraryPaths).toEqual([]);
   });
 
   it('persists tool path overrides and clears config cache', () => {

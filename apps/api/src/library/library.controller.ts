@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { LibrarySetupDto } from '@karaokej/shared';
+import { LibraryScanBodyDto } from '@karaokej/shared';
 import { LibraryService } from './library.service';
 import { LyricsService } from '../lyrics/lyrics.service';
 import { CoverService } from '../covers/cover.service';
@@ -17,19 +17,19 @@ export class LibraryController {
     return this.library.status();
   }
 
-  @Post('setup')
-  setup(@Body() body: LibrarySetupDto) {
-    return this.library.saveSetup(body.libraryPaths ?? []);
-  }
-
   @Get('artists/random')
   randomArtist(@Query('exclude') exclude?: string) {
     return this.library.getRandomArtist(exclude);
   }
 
+  @Post('rebase')
+  async rebase() {
+    return this.library.rebaseCatalogue();
+  }
+
   @Post('scan')
-  async scan() {
-    await this.library.startScan();
+  async scan(@Body() body: LibraryScanBodyDto) {
+    await this.library.startScan(body ?? {});
     return this.library.status();
   }
 

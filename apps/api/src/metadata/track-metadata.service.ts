@@ -116,6 +116,10 @@ export class TrackMetadataService {
       year: desired.year,
       genres: desired.genres,
       rating: desired.rating,
+      musicbrainzArtistId: desired.musicbrainzArtistId,
+      musicbrainzRecordingId: desired.musicbrainzRecordingId,
+      musicbrainzReleaseId: desired.musicbrainzReleaseId,
+      isrc: desired.isrc,
       durationMs,
     };
 

@@ -10,7 +10,8 @@ import {
   KaraokeSettingsDto,
   KaraokeStateDto,
   KaraokeTrackSettings,
-  LibrarySetupDto,
+  LibraryRebaseResultDto,
+  LibraryScanBodyDto,
   LibrarySort,
   LibraryStatusDto,
   LyricSearchResultDto,
@@ -34,27 +35,80 @@ import {
   TrackTagStateDto,
   UnmanagedTagsDto,
   TrackMetadataUpdateDto,
+  TrackMoveExecuteDto,
+  TrackMovePreviewDto,
   TrackPageDto,
   TrackPathDto,
   YoutubeDownloadResultDto,
   YoutubeSearchResultDto,
   defaultKaraokeState,
+  defaultMetadataProvidersSettings,
+  MetadataProviderId,
+  MetadataProviderTestResultDto,
+  MetadataSearchProviderId,
+  MetadataSearchRequestDto,
+  MetadataSearchResponseDto,
 } from '@karaokej/shared';
 
+/** Empty in browser/dev (same-origin / Vite proxy); set in Electron after IPC. */
+let apiBaseUrl = '';
+
+export function getApiBaseUrl(): string {
+  return apiBaseUrl;
+}
+
+/**
+ * Resolve the API origin before any requests. In Electron, waits for the
+ * main process to report the ephemeral localhost port; elsewhere keeps
+ * relative same-origin URLs.
+ */
+export async function initApiClient(): Promise<void> {
+  const desktop = window.karaokejDesktop;
+  if (desktop?.getApiBaseUrl) {
+    apiBaseUrl = (await desktop.getApiBaseUrl()).replace(/\/$/, '');
+  }
+}
+
+function resolveUrl(path: string): string {
+  if (!apiBaseUrl) {
+    return path;
+  }
+  return `${apiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly body: unknown,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(resolveUrl(path), {
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     ...init,
   });
   if (!response.ok) {
+    let body: unknown = null;
     let detail = response.statusText;
     try {
-      const body = await response.json();
-      detail = body.message ?? JSON.stringify(body);
+      body = await response.json();
+      if (body && typeof body === 'object' && 'message' in body) {
+        const message = (body as { message: unknown }).message;
+        if (typeof message === 'string') {
+          detail = message;
+        } else if (Array.isArray(message)) {
+          detail = message.join(', ');
+        }
+      }
     } catch {
       /* ignore */
     }
-    throw new Error(detail);
+    throw new ApiError(detail, response.status, body);
   }
   if (response.status === 204) {
     return undefined as T;
@@ -68,11 +122,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   libraryStatus: () => request<LibraryStatusDto>('/api/library/status'),
-  librarySetup: (libraryPaths: string[]) =>
-    request<LibraryStatusDto>('/api/library/setup', {
-      method: 'POST',
-      body: JSON.stringify({ libraryPaths } satisfies LibrarySetupDto),
-    }),
+  libraryRebase: () =>
+    request<LibraryRebaseResultDto>('/api/library/rebase', { method: 'POST' }),
   randomArtist: (exclude?: string) => {
     const params = new URLSearchParams();
     if (exclude?.trim()) {
@@ -83,7 +134,11 @@ export const api = {
       `/api/library/artists/random${query ? `?${query}` : ''}`,
     );
   },
-  scan: () => request<LibraryStatusDto>('/api/library/scan', { method: 'POST' }),
+  scan: (body: LibraryScanBodyDto = {}) =>
+    request<LibraryStatusDto>('/api/library/scan', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   cancelScan: () =>
     request<LibraryStatusDto>('/api/library/scan/cancel', { method: 'POST' }),
   refreshScan: () =>
@@ -193,7 +248,7 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
   renameTag: async (id: number, name: string, merge: boolean) => {
-    const response = await fetch(`/api/tags/${id}/rename`, {
+    const response = await fetch(resolveUrl(`/api/tags/${id}/rename`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, merge }),
@@ -224,12 +279,34 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ rating }),
     }),
+  searchTrackMetadata: (
+    trackId: number,
+    body: MetadataSearchRequestDto,
+  ) =>
+    request<MetadataSearchResponseDto>(`/api/tracks/${trackId}/metadata/search`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  testMetadataProvider: (providerId: MetadataProviderId) =>
+    request<MetadataProviderTestResultDto>(
+      `/api/settings/metadata-providers/${providerId}/test`,
+      { method: 'POST' },
+    ),
   readTrackMetadata: (trackId: number) =>
     request<TrackMetadataDto>(`/api/tracks/${trackId}/metadata`),
   updateTrackMetadata: (trackId: number, metadata: TrackMetadataUpdateDto) =>
     request<TrackDto>(`/api/tracks/${trackId}/metadata`, {
       method: 'PUT',
       body: JSON.stringify(metadata),
+    }),
+  previewTrackMove: (trackId: number) =>
+    request<TrackMovePreviewDto>(`/api/tracks/${trackId}/move/preview`, {
+      method: 'POST',
+    }),
+  executeTrackMove: (trackId: number, body: TrackMoveExecuteDto = {}) =>
+    request<TrackDto>(`/api/tracks/${trackId}/move`, {
+      method: 'POST',
+      body: JSON.stringify(body),
     }),
   trackPath: (trackId: number) =>
     request<TrackPathDto>(`/api/tracks/${trackId}/path`),
@@ -431,6 +508,11 @@ export const api = {
 };
 
 export function wsUrl(): string {
+  if (apiBaseUrl) {
+    const url = new URL(apiBaseUrl);
+    const proto = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${proto}//${url.host}/ws`;
+  }
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${proto}//${window.location.host}/ws`;
 }
@@ -479,6 +561,7 @@ export const emptySession: SessionStateDto = {
     },
   },
   settings: {
+    metadataProviders: defaultMetadataProvidersSettings(),
     removePlayedFromQueue: false,
     crossfadeSeconds: 0,
     crossfadePrefSeconds: 5,
@@ -492,6 +575,8 @@ export const emptySession: SessionStateDto = {
     ytdlpNodePath: '',
     ytsaverPath: '',
     demucsPath: '',
+    libraryPaths: [],
+    mainLibraryPath: null,
   },
   karaoke: defaultKaraokeState(),
 };

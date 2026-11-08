@@ -12,6 +12,8 @@ import { join, relative } from 'node:path';
 import {
   JobKind,
   JobStatusDto,
+  LibraryRebaseResultDto,
+  LibraryScanBodyDto,
   LibraryStatusDto,
   RandomArtistDto,
   ScanIssueDto,
@@ -21,7 +23,11 @@ import {
   TrackPathDto,
 } from '@karaokej/shared';
 import { AppConfigService } from '../config/app-config.service';
-import { writePortableConfig } from '../config/portable-config';
+import {
+  LIBRARY_PATHS_SETTINGS_HINT,
+  LIBRARY_REBASE_REQUIRED_HINT,
+} from './library-path-messages';
+import { validateConfiguredLibraryPaths } from './library-path-validation';
 import { DbService } from '../db/db.service';
 import { JobRow, TrackRow, trackToDto } from '../db/types';
 import { loadStemRowsForTracks, resolveStemStatusForTrack } from '../karaoke/stem-status';
@@ -50,9 +56,12 @@ import {
   serializeStoredScanRoots,
 } from './library-rebase';
 import {
+  buildLibraryPathLayout,
   cataloguePathBelongsToRoot,
   prefixCataloguePath,
+  sameRootSet,
   stripCataloguePath,
+  type LibraryPathLayout,
 } from './library-paths';
 import {
   LIBRARY_LAST_FULL_SCAN_AT_KEY,
@@ -145,22 +154,6 @@ export class LibraryService implements OnModuleInit {
     this.reconcileScanJob('startup');
   }
 
-  saveSetup(libraryPaths: string[]): LibraryStatusDto {
-    const root = process.env.KARAOKEJ_ROOT?.trim();
-    if (!root) {
-      throw new BadRequestException(
-        'Library setup is only available in the packaged desktop app',
-      );
-    }
-    const cleaned = libraryPaths.map((p) => p.trim()).filter(Boolean);
-    if (cleaned.length === 0) {
-      throw new BadRequestException('Choose at least one music library folder');
-    }
-    writePortableConfig(root, cleaned);
-    this.config.clearLibraryLayoutCache();
-    return this.status();
-  }
-
   status(): LibraryStatusDto {
     const trackCount = this.db.raw
       .prepare(`SELECT COUNT(*) AS n FROM tracks WHERE available = 1`)
@@ -170,11 +163,18 @@ export class LibraryService implements OnModuleInit {
         `SELECT COUNT(*) AS n FROM tracks WHERE available = 1 AND lyric_status = 'present'`,
       )
       .get() as { n: number };
+    const configured = this.config.configuredLibraryPaths;
+    const pathCheck = validateConfiguredLibraryPaths(
+      configured,
+      this.config.repoRoot,
+    );
     return {
       trackCount: trackCount.n,
       withLyrics: withLyrics.n,
       libraryPaths: this.config.libraryPaths,
-      libraryConfigured: this.config.libraryPaths.length > 0,
+      libraryConfigured: configured.length > 0,
+      rebasePending: this.isRebasePending(),
+      invalidLibraryPaths: pathCheck.invalid,
       lastFullScanAt: this.getLastFullScanAt(),
       scanIssues: this.getScanIssues(),
       scan: this.jobStatus('scan'),
@@ -397,12 +397,7 @@ export class LibraryService implements OnModuleInit {
       throw new BadRequestException('Downloaded file not found');
     }
     const layout = this.config.libraryLayout;
-    const firstRoot = layout.roots[0];
-    if (!firstRoot) {
-      throw new BadRequestException(
-        'MUSIC_LIBRARY_PATH is not configured. Set it in .env and restart.',
-      );
-    }
+    const firstRoot = this.requireLibraryRootsForDownload();
     const downloadsDir = join(firstRoot, 'Downloads');
     const normalizedAbsolute = absolutePath.replace(/\\/g, '/');
     const normalizedDownloads = downloadsDir.replace(/\\/g, '/');
@@ -735,20 +730,107 @@ export class LibraryService implements OnModuleInit {
     return { total, rows };
   }
 
-  async startScan(): Promise<void> {
-    if (this.config.libraryPaths.length === 0) {
-      throw new BadRequestException(
-        'MUSIC_LIBRARY_PATH is not configured. Set it in .env and restart.',
-      );
+  requireLibraryRootsForDownload(): string {
+    const configured = this.config.configuredLibraryPaths;
+    if (configured.length === 0) {
+      throw new BadRequestException(LIBRARY_PATHS_SETTINGS_HINT);
     }
+    const result = validateConfiguredLibraryPaths(
+      configured,
+      this.config.repoRoot,
+    );
+    if (result.validRoots.length === 0) {
+      throw new BadRequestException(LIBRARY_PATHS_SETTINGS_HINT);
+    }
+    if (this.isRebasePending()) {
+      throw new BadRequestException(LIBRARY_REBASE_REQUIRED_HINT);
+    }
+    return result.validRoots[0]!;
+  }
+
+  async startScan(body: LibraryScanBodyDto = {}): Promise<void> {
+    const { validRoots } = this.prepareLibraryRootsForOperation({
+      allowPartialInvalid: Boolean(body.acknowledgeInvalidRoots),
+    });
     if (this.scanRunning) {
       return;
     }
     this.scanCancelRequested = false;
     this.scanRunning = true;
-    void this.runScan().finally(() => {
+    void this.runScan(validRoots).finally(() => {
       this.scanRunning = false;
     });
+  }
+
+  async rebaseCatalogue(): Promise<LibraryRebaseResultDto> {
+    if (this.config.configuredLibraryPaths.length === 0) {
+      throw new BadRequestException(LIBRARY_PATHS_SETTINGS_HINT);
+    }
+    if (this.scanRunning) {
+      throw new ConflictException('A library scan is already running.');
+    }
+    const roots = this.config.libraryPaths;
+    if (roots.length === 0) {
+      throw new BadRequestException(LIBRARY_PATHS_SETTINGS_HINT);
+    }
+    this.scanCancelRequested = false;
+    this.scanRunning = true;
+    try {
+      await this.maybeRebaseCataloguePaths(roots);
+      if (this.scanCancelRequested) {
+        return {
+          message: 'Rebase cancelled.',
+          libraryStatus: this.status(),
+        };
+      }
+      return {
+        message: 'Catalogue paths rebased for the current library folders.',
+        libraryStatus: this.status(),
+      };
+    } finally {
+      this.scanRunning = false;
+      if (this.jobStatus('scan').running) {
+        this.setJob('scan', {
+          running: false,
+          message: null,
+        });
+      }
+    }
+  }
+
+  private isRebasePending(): boolean {
+    const stored = this.getStoredScanRoots();
+    if (!stored) {
+      return false;
+    }
+    return !sameRootSet(stored, this.config.libraryPaths);
+  }
+
+  private prepareLibraryRootsForOperation(options: {
+    allowPartialInvalid: boolean;
+  }): ReturnType<typeof validateConfiguredLibraryPaths> {
+    const configured = this.config.configuredLibraryPaths;
+    if (configured.length === 0) {
+      throw new BadRequestException(LIBRARY_PATHS_SETTINGS_HINT);
+    }
+    const result = validateConfiguredLibraryPaths(
+      configured,
+      this.config.repoRoot,
+    );
+    if (result.validRoots.length === 0) {
+      throw new BadRequestException(LIBRARY_PATHS_SETTINGS_HINT);
+    }
+    if (result.invalid.length > 0 && !options.allowPartialInvalid) {
+      throw new ConflictException({
+        message:
+          'Some library folders are missing, not readable, or not folders.',
+        invalidLibraryPaths: result.invalid,
+      });
+    }
+    if (this.isRebasePending()) {
+      throw new BadRequestException(LIBRARY_REBASE_REQUIRED_HINT);
+    }
+    return result;
   }
 
   cancelScan(): void {
@@ -793,9 +875,8 @@ export class LibraryService implements OnModuleInit {
     return this.status();
   }
 
-  private async runScan(): Promise<void> {
-    const layout = this.config.libraryLayout;
-    const roots = layout.roots;
+  private async runScan(roots: string[]): Promise<void> {
+    const layout: LibraryPathLayout = buildLibraryPathLayout(roots);
     const progressEstimate = this.getProgressEstimate();
     this.setJob('scan', {
       running: true,
@@ -806,15 +887,6 @@ export class LibraryService implements OnModuleInit {
     const walkErrors: ScanIssueDto[] = [];
     this.saveScanIssues([]);
     try {
-      await this.maybeRebaseCataloguePaths(roots);
-      if (this.scanCancelRequested) {
-        this.setJob('scan', {
-          running: false,
-          message: 'Scan cancelled',
-        });
-        return;
-      }
-
       const existing = this.db.raw
         .prepare(`SELECT id, relative_path, size_bytes, mtime_ms FROM tracks`)
         .all() as Array<{

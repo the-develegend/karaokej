@@ -2,6 +2,10 @@ import type { AudioFormat } from '@karaokej/shared';
 import type { ParsedTrackMetadata } from '../library/scan-ipc';
 import { clampRating } from '../rating/rating-scale';
 
+const MBID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ISRC_RE = /^[A-Z0-9]{5}[0-9]{7}$/i;
+
 export interface EditableTrackMetadata {
   title: string;
   artist: string | null;
@@ -11,6 +15,10 @@ export interface EditableTrackMetadata {
   year: number | null;
   genres: string[];
   rating: number;
+  musicbrainzArtistId: string | null;
+  musicbrainzRecordingId: string | null;
+  musicbrainzReleaseId: string | null;
+  isrc: string | null;
 }
 
 export interface TrackMetadataFileDto extends EditableTrackMetadata {
@@ -24,6 +32,28 @@ function normalizeOptionalString(value: string | null | undefined): string | nul
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeMbid(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return value === null ? null : null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return MBID_RE.test(trimmed) ? trimmed.toLowerCase() : null;
+}
+
+function normalizeIsrc(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return value === null ? null : null;
+  }
+  const trimmed = value.trim().toUpperCase();
+  if (!trimmed) {
+    return null;
+  }
+  return ISRC_RE.test(trimmed) ? trimmed : trimmed;
 }
 
 function normalizeGenres(genres: string[]): string[] {
@@ -54,6 +84,10 @@ export function editableFromParsed(parsed: ParsedTrackMetadata): EditableTrackMe
     year: parsed.year,
     genres: normalizeGenres(parsed.genres),
     rating: clampRating(parsed.rating ?? 0),
+    musicbrainzArtistId: normalizeMbid(parsed.musicbrainzArtistId),
+    musicbrainzRecordingId: normalizeMbid(parsed.musicbrainzRecordingId),
+    musicbrainzReleaseId: normalizeMbid(parsed.musicbrainzReleaseId),
+    isrc: normalizeIsrc(parsed.isrc),
   };
 }
 
@@ -114,6 +148,10 @@ export function normalizeEditableMetadata(
     year,
     genres,
     rating,
+    musicbrainzArtistId: normalizeMbid(input.musicbrainzArtistId),
+    musicbrainzRecordingId: normalizeMbid(input.musicbrainzRecordingId),
+    musicbrainzReleaseId: normalizeMbid(input.musicbrainzReleaseId),
+    isrc: normalizeIsrc(input.isrc),
   };
 }
 
@@ -129,6 +167,10 @@ export function metadataEquals(
     a.trackNo === b.trackNo &&
     a.year === b.year &&
     a.rating === b.rating &&
+    a.musicbrainzArtistId === b.musicbrainzArtistId &&
+    a.musicbrainzRecordingId === b.musicbrainzRecordingId &&
+    a.musicbrainzReleaseId === b.musicbrainzReleaseId &&
+    a.isrc === b.isrc &&
     a.genres.length === b.genres.length &&
     a.genres.every((genre, index) => genre === b.genres[index])
   );

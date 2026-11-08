@@ -6,6 +6,7 @@ import { DbService } from './db/db.service';
 import { SessionGateway } from './session/session.gateway';
 import { SessionService } from './session/session.service';
 import { LibraryService } from './library/library.service';
+import { TrackMoveService } from './library/track-move.service';
 import { LibraryController } from './library/library.controller';
 import { TracksController } from './tracks/tracks.controller';
 import { QueueController } from './queue/queue.controller';
@@ -38,6 +39,14 @@ import { DeezerClient } from './artist-bio/deezer.client';
 import { ArtistBioService } from './artist-bio/artist-bio.service';
 import { TagsController } from './tags/tags.controller';
 import { TagsService } from './tags/tags.service';
+import { MetadataSearchService } from './metadata-search/metadata-search.service';
+import { MetadataProviderTestService } from './metadata-search/metadata-provider-test.service';
+import { MusicBrainzMetadataClient } from './metadata-search/musicbrainz.client';
+import { DiscogsMetadataClient } from './metadata-search/discogs.client';
+import { LastFmMetadataClient } from './metadata-search/lastfm.client';
+import { GnuDbMetadataClient } from './metadata-search/gnudb.client';
+import { SpotifyMetadataClient } from './metadata-search/spotify.client';
+import { AcoustIdMetadataClient } from './metadata-search/acoustid.client';
 
 @Module({
   imports: [
@@ -69,6 +78,7 @@ import { TagsService } from './tags/tags.service';
     SessionService,
     SessionGateway,
     LibraryService,
+    TrackMoveService,
     QueueService,
     PlaybackService,
     LyricsService,
@@ -90,6 +100,14 @@ import { TagsService } from './tags/tags.service';
     DeezerClient,
     ArtistBioService,
     TagsService,
+    MetadataSearchService,
+    MetadataProviderTestService,
+    MusicBrainzMetadataClient,
+    DiscogsMetadataClient,
+    LastFmMetadataClient,
+    GnuDbMetadataClient,
+    SpotifyMetadataClient,
+    AcoustIdMetadataClient,
   ],
 })
 export class AppModule {}
