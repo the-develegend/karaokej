@@ -67,15 +67,31 @@ function metadataFromParsed(
     year: yearFromMetadata(common),
     genres: genresFromMetadata(common),
     musicbrainzArtistId: musicbrainzArtistIdFromMetadata(common),
+    musicbrainzRecordingId:
+      firstCommonString(common.musicbrainz_recordingid) ??
+      firstCommonString(common.musicbrainz_trackid),
+    musicbrainzReleaseId:
+      firstCommonString(common.musicbrainz_albumid) ??
+      firstCommonString(common.musicbrainz_releasegroupid),
+    isrc: firstCommonString(common.isrc),
     moodValues: moodValuesFromNative(meta.native as never),
   };
+}
+
+function firstCommonString(
+  values: string | string[] | null | undefined,
+): string | null {
+  if (values == null) {
+    return null;
+  }
+  const raw = (Array.isArray(values) ? values[0] : values)?.trim();
+  return raw || null;
 }
 
 function musicbrainzArtistIdFromMetadata(common: {
   musicbrainz_artistid?: string[] | null;
 }): string | null {
-  const raw = common.musicbrainz_artistid?.[0]?.trim();
-  return raw || null;
+  return firstCommonString(common.musicbrainz_artistid);
 }
 
 export interface ReadTrackMetadataOptions {
@@ -143,6 +159,9 @@ export async function readTrackMetadata(
         year: null,
         genres: [],
         musicbrainzArtistId: null,
+        musicbrainzRecordingId: null,
+        musicbrainzReleaseId: null,
+        isrc: null,
         moodValues: [],
       },
     };

@@ -11,11 +11,57 @@ import type { EditableTrackMetadata } from '../metadata/metadata-fields';
 import { readMoodValues, writeMoodValues } from './id3-mood';
 import { internalToPopm, POPM_EMAIL } from './rating-scale';
 
+function musicBrainzUserDefined(
+  metadata: EditableTrackMetadata,
+): NonNullable<NodeID3.Tags['userDefinedText']> {
+  const items: NonNullable<NodeID3.Tags['userDefinedText']> = [];
+  if (metadata.musicbrainzArtistId) {
+    items.push({
+      description: 'MusicBrainz Artist Id',
+      value: metadata.musicbrainzArtistId,
+    });
+  }
+  if (metadata.musicbrainzRecordingId) {
+    items.push({
+      description: 'MusicBrainz Track Id',
+      value: metadata.musicbrainzRecordingId,
+    });
+  }
+  if (metadata.musicbrainzReleaseId) {
+    items.push({
+      description: 'MusicBrainz Album Id',
+      value: metadata.musicbrainzReleaseId,
+    });
+  }
+  return items;
+}
+
+function existingUserDefinedTags(
+  existing: NodeID3.Tags,
+): NonNullable<NodeID3.Tags['userDefinedText']> {
+  const raw = existing.userDefinedText;
+  if (!raw) {
+    return [];
+  }
+  const list = Array.isArray(raw) ? raw : [raw];
+  return list.filter(
+    (
+      entry,
+    ): entry is { description: string; value: string } =>
+      entry != null &&
+      typeof entry === 'object' &&
+      typeof entry.description === 'string' &&
+      typeof entry.value === 'string',
+  );
+}
+
 function mp3TagPayload(
   metadata: EditableTrackMetadata,
+  existing: NodeID3.Tags,
   existingCounter: number,
 ): NodeID3.Tags {
-  return {
+  const nextMb = musicBrainzUserDefined(metadata);
+  const payload: NodeID3.Tags = {
     title: metadata.title,
     artist: metadata.artist ?? undefined,
     album: metadata.album ?? undefined,
@@ -30,6 +76,23 @@ function mp3TagPayload(
       counter: existingCounter,
     },
   };
+  if (metadata.isrc) {
+    payload.ISRC = metadata.isrc;
+  }
+  if (nextMb.length > 0) {
+    const preservedUserDefined = existingUserDefinedTags(existing).filter(
+      (entry) => {
+        const desc = entry.description.toLowerCase();
+        return (
+          !desc.includes('musicbrainz artist') &&
+          !desc.includes('musicbrainz track') &&
+          !desc.includes('musicbrainz album')
+        );
+      },
+    );
+    payload.userDefinedText = [...preservedUserDefined, ...nextMb];
+  }
+  return payload;
 }
 
 /**
@@ -107,7 +170,7 @@ export async function writeMp3Metadata(
   metadata: EditableTrackMetadata,
 ): Promise<void> {
   await applyMp3Tags(absolutePath, (existing) =>
-    mp3TagPayload(metadata, existing.popularimeter?.counter ?? 0),
+    mp3TagPayload(metadata, existing, existing.popularimeter?.counter ?? 0),
   );
 }
 

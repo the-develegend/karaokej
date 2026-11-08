@@ -17,6 +17,9 @@ export interface ParsedTrackMetadata {
   year: number | null;
   genres: string[];
   musicbrainzArtistId: string | null;
+  musicbrainzRecordingId: string | null;
+  musicbrainzReleaseId: string | null;
+  isrc: string | null;
   /** Raw Mood values from the file, before name rules. */
   moodValues: string[];
 }

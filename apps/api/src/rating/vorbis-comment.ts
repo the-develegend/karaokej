@@ -104,6 +104,10 @@ const METADATA_COMMENT_KEYS = new Set([
   'YEAR',
   'GENRE',
   'RATING',
+  'MUSICBRAINZ_ARTISTID',
+  'MUSICBRAINZ_TRACKID',
+  'MUSICBRAINZ_ALBUMID',
+  'ISRC',
 ]);
 
 export interface VorbisMetadataInput {
@@ -115,6 +119,10 @@ export interface VorbisMetadataInput {
   year: number | null;
   genres: string[];
   rating: number;
+  musicbrainzArtistId: string | null;
+  musicbrainzRecordingId: string | null;
+  musicbrainzReleaseId: string | null;
+  isrc: string | null;
 }
 
 export function applyMetadataComments(
@@ -147,5 +155,26 @@ export function applyMetadataComments(
     }
   }
   next.push({ key: 'RATING', value: String(metadata.rating) });
+  if (metadata.musicbrainzArtistId) {
+    next.push({
+      key: 'MUSICBRAINZ_ARTISTID',
+      value: metadata.musicbrainzArtistId,
+    });
+  }
+  if (metadata.musicbrainzRecordingId) {
+    next.push({
+      key: 'MUSICBRAINZ_TRACKID',
+      value: metadata.musicbrainzRecordingId,
+    });
+  }
+  if (metadata.musicbrainzReleaseId) {
+    next.push({
+      key: 'MUSICBRAINZ_ALBUMID',
+      value: metadata.musicbrainzReleaseId,
+    });
+  }
+  if (metadata.isrc) {
+    next.push({ key: 'ISRC', value: metadata.isrc });
+  }
   return next;
 }

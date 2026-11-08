@@ -72,6 +72,10 @@ describe('mp3 mood', () => {
       year: 2023,
       genres: ['Hip-Hop'],
       rating: 4,
+      musicbrainzArtistId: null,
+      musicbrainzRecordingId: null,
+      musicbrainzReleaseId: null,
+      isrc: null,
     });
 
     const written = readFileSync(target);

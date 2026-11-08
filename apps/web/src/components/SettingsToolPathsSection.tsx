@@ -154,7 +154,7 @@ export function SettingsToolPathsSection({
         );
       })}
       {error ? (
-        <p className="settings-feedback error settings-page-full-width">{error}</p>
+        <p className="settings-feedback error">{error}</p>
       ) : null}
     </>
   );
