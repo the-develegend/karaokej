@@ -600,6 +600,12 @@ export function TrackMetadataModal({
       } as FormSnapshot)
     : null;
 
+  const applyFields = COMPARE_FIELDS.filter((f) => !f.skipInApply);
+  const isFieldApplied = (key: keyof FormSnapshot): boolean =>
+    hitSnapshot != null && formSnapshot[key] === hitSnapshot[key];
+  const allFieldsApplied =
+    hitSnapshot != null && applyFields.every(({ key }) => isFieldApplied(key));
+
   return (
     <ModalDialog
       open={open}
@@ -783,22 +789,34 @@ export function TrackMetadataModal({
                       </div>
                     ) : null}
                     <dl className="metadata-compare-fields">
-                      {COMPARE_FIELDS.filter((f) => !f.skipInApply).map(
-                        ({ key, label }) => (
+                      {applyFields.map(({ key, label }) => {
+                        const applied = isFieldApplied(key);
+                        return (
                           <div key={key} className="metadata-compare-row">
                             <dt>{label}</dt>
                             <dd>{displayValue(hitSnapshot!, key)}</dd>
                             <button
                               type="button"
+                              className={
+                                applied ? 'metadata-use-applied' : undefined
+                              }
+                              aria-pressed={applied}
                               onClick={() => applyFieldFromHit(key)}
                             >
                               Use
                             </button>
                           </div>
-                        ),
-                      )}
+                        );
+                      })}
                     </dl>
-                    <button type="button" onClick={() => applyAllFromHit()}>
+                    <button
+                      type="button"
+                      className={
+                        allFieldsApplied ? 'metadata-use-applied' : undefined
+                      }
+                      aria-pressed={allFieldsApplied}
+                      onClick={() => applyAllFromHit()}
+                    >
                       Apply all of this result
                     </button>
                   </>

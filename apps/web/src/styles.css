@@ -2600,6 +2600,13 @@ a.search-miss-btn:hover {
   word-break: break-word;
 }
 
+button.metadata-use-applied,
+button.metadata-use-applied:hover:not(:disabled) {
+  color: #111;
+  background: var(--gold);
+  border-color: var(--gold-deep);
+}
+
 .metadata-search-setup {
   display: grid;
   gap: 0.6rem;
