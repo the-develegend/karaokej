@@ -84,6 +84,11 @@ import {
 import { resolveReliableDurationMs } from './probe-duration';
 import { upsertPathTrack, upsertTagsTrack } from './scan-track-upsert';
 import { loadManagedTagNames } from '../tags/tag-cache';
+import { SettingsService } from '../settings/settings.service';
+import {
+  classifyLibraryPlacement,
+  resolveMainRootAbsolute,
+} from './library-placement';
 
 const LIBRARY_SCAN_ROOT_KEY = 'library_scan_root';
 
@@ -148,6 +153,7 @@ export class LibraryService implements OnModuleInit {
     private readonly config: AppConfigService,
     private readonly session: SessionService,
     private readonly separation: SeparationService,
+    private readonly settings: SettingsService,
   ) {}
 
   onModuleInit(): void {
@@ -250,12 +256,30 @@ export class LibraryService implements OnModuleInit {
       this.db.raw,
       rows.map((row) => row.id),
     );
+    const layout = this.config.libraryLayout;
+    const mainRoot = resolveMainRootAbsolute(
+      this.settings.getLibraryPaths(),
+      this.settings.getEffectiveMainLibraryPath(),
+      layout,
+    );
     return rows.map((row) =>
       trackToDto(
         row,
         resolveStemStatusForTrack(row, stemByTrackId.get(row.id)),
         coverInfoForTrack(coverByGroup, row),
         tagsByTrack.get(row.id) ?? [],
+        classifyLibraryPlacement({
+          cataloguePath: row.relative_path,
+          title: row.title,
+          artist: row.artist,
+          albumArtist: row.album_artist,
+          album: row.album,
+          year: row.year,
+          trackNo: row.track_no,
+          format: row.format,
+          layout,
+          mainRoot,
+        }),
       ),
     );
   }

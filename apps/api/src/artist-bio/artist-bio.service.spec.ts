@@ -3,6 +3,10 @@ import { ArtistBioService } from './artist-bio.service';
 import { LibraryService } from '../library/library.service';
 import { createMockSession } from '../test/mock-session';
 import { createMockSeparation } from '../test/mock-separation';
+import {
+  createMockLibraryConfig,
+  createMockLibrarySettings,
+} from '../test/mock-library-deps';
 import { createTestDb, insertTrack, TestDbService } from '../test/test-db';
 import { AudioDbClient } from './audiodb.client';
 import { DeezerClient } from './deezer.client';
@@ -28,9 +32,10 @@ describe('ArtistBioService', () => {
     const session = createMockSession(db);
     library = new LibraryService(
       db as never,
-      { libraryPaths: [] } as never,
+      createMockLibraryConfig() as never,
       session,
       createMockSeparation(),
+      createMockLibrarySettings() as never,
     );
     audiodb = {
       lookupArtistByMbid: vi.fn(),

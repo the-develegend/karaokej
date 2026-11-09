@@ -36,6 +36,7 @@ function queueItem(id: number, position: number, trackId: number): QueueItemDto 
       coverStatus: 'pending' as const,
       musicbrainzArtistId: null,
       tags: [],
+      libraryPlacement: 'organized' as const,
     },
     stem: null,
   };

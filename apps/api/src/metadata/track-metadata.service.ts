@@ -8,8 +8,6 @@ import { access, constants } from 'node:fs/promises';
 import { TrackDto } from '@karaokej/shared';
 import { AppConfigService } from '../config/app-config.service';
 import { DbService } from '../db/db.service';
-import { trackToDto } from '../db/types';
-import { loadCoverInfoForTrack } from '../covers/cover-lookup';
 import { pruneOrphanedCoverGroups } from '../covers/cover-storage';
 import { lyricPathFor } from '../library/fs-utils';
 import { readTrackMetadata } from '../library/scan-metadata';
@@ -24,7 +22,6 @@ import {
   type TrackMetadataFileDto,
 } from './metadata-fields';
 import { writeMetadataToFile } from './metadata-tags';
-import { managedTagsForTrack } from '../tags/tag-cache';
 
 @Injectable()
 export class TrackMetadataService {
@@ -145,15 +142,10 @@ export class TrackMetadataService {
     }
 
     this.session.broadcast();
-    const updated = this.library.getTrack(trackId);
+    const updated = this.library.getTrackDto(trackId);
     if (!updated) {
       throw new NotFoundException('Track not found');
     }
-    return trackToDto(
-      updated,
-      null,
-      loadCoverInfoForTrack(this.db.raw, updated),
-      managedTagsForTrack(this.db.raw, updated.id),
-    );
+    return updated;
   }
 }

@@ -25,6 +25,7 @@ const track = {
   coverStatus: 'pending' as const,
   musicbrainzArtistId: null,
   tags: [],
+  libraryPlacement: 'organized' as const,
 };
 
 describe('resolveAudioSrc', () => {

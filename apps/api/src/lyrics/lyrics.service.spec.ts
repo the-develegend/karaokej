@@ -4,6 +4,10 @@ import { LyricsService } from './lyrics.service';
 import { LibraryService } from '../library/library.service';
 import { createMockSession } from '../test/mock-session';
 import { createMockSeparation } from '../test/mock-separation';
+import {
+  createMockLibraryConfig,
+  createMockLibrarySettings,
+} from '../test/mock-library-deps';
 import { createTestDb, insertTrack, TestDbService } from '../test/test-db';
 
 const NOT_FOUND_COOLDOWN_MS = 60 * 24 * 60 * 60 * 1000;
@@ -33,9 +37,10 @@ describe('LyricsService', () => {
     session = createMockSession(db);
     library = new LibraryService(
       db as never,
-      { libraryPaths: [] } as never,
+      createMockLibraryConfig() as never,
       session,
       createMockSeparation(),
+      createMockLibrarySettings() as never,
     );
     lyrics = new LyricsService(
       db as never,

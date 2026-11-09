@@ -18,9 +18,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { TrackDto, TrackMovePreviewDto } from '@karaokej/shared';
 import { AppConfigService } from '../config/app-config.service';
 import { DbService } from '../db/db.service';
-import { trackToDto } from '../db/types';
 import { isCoverImageFile } from '../covers/cover-source';
-import { loadCoverInfoForTrack } from '../covers/cover-lookup';
 import { SettingsService } from '../settings/settings.service';
 import { SessionService } from '../session/session.service';
 import { lyricPathFor } from './fs-utils';
@@ -113,16 +111,12 @@ export class TrackMoveService {
       )
       .run(cataloguePath, fileStat.mtimeMs, fileStat.size, now, trackId);
 
-    const updated = this.library.getTrack(trackId);
+    const updated = this.library.getTrackDto(trackId);
     if (!updated) {
       throw new NotFoundException('Track not found');
     }
     this.session.broadcast();
-    return trackToDto(
-      updated,
-      null,
-      loadCoverInfoForTrack(this.db.raw, updated),
-    );
+    return updated;
   }
 
   private planMove(trackId: number): {

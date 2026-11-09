@@ -19,6 +19,20 @@ export type CoverStatus = 'pending' | 'ready' | 'none' | 'error';
 
 export type CoverSize = 'sm' | 'lg';
 
+/**
+ * Where a track sits relative to the main library folder + canonical layout.
+ * - organized: under main at the expected Artist/Album path
+ * - in_main_unsorted: under main but not at the canonical layout path
+ * - outside_main: not under the main library root (even if tidy in another root)
+ */
+export const LIBRARY_PLACEMENTS = [
+  'organized',
+  'in_main_unsorted',
+  'outside_main',
+] as const;
+
+export type LibraryPlacement = (typeof LIBRARY_PLACEMENTS)[number];
+
 export interface TrackDto {
   id: number;
   relativePath: string;
@@ -53,6 +67,8 @@ export interface TrackDto {
   musicbrainzArtistId: string | null;
   /** Managed mood names on this song, alphabetical. */
   tags: string[];
+  /** Placement vs main library root and canonical layout path. */
+  libraryPlacement: LibraryPlacement;
 }
 
 export interface TrackPageDto {

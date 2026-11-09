@@ -7,6 +7,7 @@ import {
   KaraokeSettingsDto,
   KaraokeStemDto,
   KaraokeTrackSettings,
+  LibraryPlacement,
   LyricSource,
   LyricStatus,
   TrackDto,
@@ -67,6 +68,7 @@ export function trackToDto(
   karaokeStemStatus: AiProcessingStatus | null = null,
   cover: TrackCoverInfo | null = null,
   tags: string[] = [],
+  libraryPlacement: LibraryPlacement = 'organized',
 ): TrackDto {
   return {
     id: row.id,
@@ -91,6 +93,7 @@ export function trackToDto(
     coverStatus: cover?.status ?? 'pending',
     musicbrainzArtistId: row.musicbrainz_artist_id ?? null,
     tags,
+    libraryPlacement,
   };
 }
 

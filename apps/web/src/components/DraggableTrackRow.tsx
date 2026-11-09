@@ -1,5 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
-import { FiPause, FiPlay, FiTag } from 'react-icons/fi';
+import { FiFolderMinus, FiMove, FiPause, FiPlay, FiTag } from 'react-icons/fi';
 import { TrackDto } from '@karaokej/shared';
 import { api } from '../api';
 import { trackDragId } from '../dnd/dragIds';
@@ -57,6 +57,24 @@ export function DraggableTrackRow({
   const showDragging = isDragging || batchDragging;
   const stemBadge = karaokeStemBadge(track.karaokeStemStatus);
   const tagsPending = track.metadataStatus === 'pending';
+  const PlacementIcon =
+    track.libraryPlacement === 'outside_main'
+      ? FiFolderMinus
+      : track.libraryPlacement === 'in_main_unsorted'
+        ? FiMove
+        : null;
+  const placementTitle =
+    track.libraryPlacement === 'outside_main'
+      ? 'Outside main library — click to edit metadata'
+      : track.libraryPlacement === 'in_main_unsorted'
+        ? 'Not in main library layout — click to edit metadata'
+        : null;
+  const placementLabel =
+    track.libraryPlacement === 'outside_main'
+      ? 'Outside main library'
+      : track.libraryPlacement === 'in_main_unsorted'
+        ? 'Not in main library layout'
+        : null;
   const isCurrentPlaying =
     state.playback.status === 'playing' &&
     state.playback.currentTrack?.id === track.id;
@@ -105,6 +123,17 @@ export function DraggableTrackRow({
           fetching={fetching}
           onFetch={() => onFetchLyrics(track.id)}
         />
+        {PlacementIcon && placementTitle && placementLabel ? (
+          <button
+            type="button"
+            className="status-icon warn"
+            title={placementTitle}
+            aria-label={placementLabel}
+            onClick={() => onEditMetadata(track)}
+          >
+            <PlacementIcon aria-hidden />
+          </button>
+        ) : null}
         {tagsPending ? (
           <span
             className="status-icon warn"

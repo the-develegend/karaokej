@@ -5,6 +5,10 @@ import { QueueService } from '../queue/queue.service';
 import { LibraryService } from '../library/library.service';
 import { createMockSession } from '../test/mock-session';
 import { createMockSeparation } from '../test/mock-separation';
+import {
+  createMockLibraryConfig,
+  createMockLibrarySettings,
+} from '../test/mock-library-deps';
 import { createTestDb, insertTrack, TestDbService } from '../test/test-db';
 
 describe('PlaylistsService', () => {
@@ -24,9 +28,10 @@ describe('PlaylistsService', () => {
     playlists = new PlaylistsService(db as never, queue);
     library = new LibraryService(
       db as never,
-      { libraryPaths: [] } as never,
+      createMockLibraryConfig() as never,
       session,
       createMockSeparation(),
+      createMockLibrarySettings() as never,
     );
     trackA = insertTrack(db, {
       relativePath: 'a/song-a.mp3',

@@ -6,6 +6,10 @@ import { NotFoundException } from '@nestjs/common';
 import { LibraryService } from './library.service';
 import { createMockSession } from '../test/mock-session';
 import { createMockSeparation } from '../test/mock-separation';
+import {
+  createMockLibraryConfig,
+  createMockLibrarySettings,
+} from '../test/mock-library-deps';
 import { createTestDb, insertTrack, TestDbService } from '../test/test-db';
 import { coverGroupKey } from '../covers/cover-group-key';
 import { coverFilePath, writeCoverFile } from '../covers/cover-storage';
@@ -40,9 +44,10 @@ describe('LibraryService.search', () => {
     ({ db, cleanup } = createTestDb());
     library = new LibraryService(
       db as never,
-      { libraryPaths: [] } as never,
+      createMockLibraryConfig() as never,
       createMockSession(db),
       createMockSeparation(),
+      createMockLibrarySettings() as never,
     );
   });
 
@@ -332,15 +337,14 @@ describe('LibraryService scan job recovery', () => {
   let cleanup: () => void;
   let library: LibraryService;
 
-  const mockConfig = {
-    libraryPaths: [],
+  const mockConfig = createMockLibraryConfig({
     configuredLibraryPaths: [],
     repoRoot: '/tmp',
     ytsaverPath: '/missing/ytsaver',
     ytdlpPath: '/missing/ytdlp',
     demucsPath: '/missing/demucs',
     isDemucsAvailable: () => false,
-  };
+  });
 
   beforeEach(() => {
     ({ db, cleanup } = createTestDb());
@@ -349,6 +353,7 @@ describe('LibraryService scan job recovery', () => {
       mockConfig as never,
       createMockSession(db),
       createMockSeparation(),
+      createMockLibrarySettings() as never,
     );
     db.raw
       .prepare(
@@ -404,9 +409,10 @@ describe('LibraryService.getRandomArtist', () => {
     ({ db, cleanup } = createTestDb());
     library = new LibraryService(
       db as never,
-      { libraryPaths: [] } as never,
+      createMockLibraryConfig() as never,
       createMockSession(db),
       createMockSeparation(),
+      createMockLibrarySettings() as never,
     );
   });
 
@@ -487,6 +493,7 @@ describe('LibraryService.deleteTrackFile', () => {
     library = new LibraryService(
       db as never,
       {
+        ...createMockLibraryConfig(),
         resolveUnderLibrary: (relativePath: string) =>
           join(libraryRoot, relativePath),
         get coverCachePath() {
@@ -495,6 +502,7 @@ describe('LibraryService.deleteTrackFile', () => {
       } as never,
       createMockSession(db),
       createMockSeparation(),
+      createMockLibrarySettings() as never,
     );
   });
 
@@ -610,9 +618,10 @@ describe('LibraryService.search tags', () => {
     ({ db, cleanup } = createTestDb());
     library = new LibraryService(
       db as never,
-      { libraryPaths: [] } as never,
+      createMockLibraryConfig() as never,
       createMockSession(db),
       createMockSeparation(),
+      createMockLibrarySettings() as never,
     );
     const now = Date.now();
     db.raw
