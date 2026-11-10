@@ -10,6 +10,7 @@ import {
   TrackMovePreviewDto,
 } from '@karaokej/shared';
 import { api } from '../api';
+import { saveFailureMessage } from './metadata-save-error';
 import {
   formatCompareDuration,
   formatDuration,
@@ -181,6 +182,8 @@ export function TrackMetadataModal({
   const [savedBaseline, setSavedBaseline] = useState<FormSnapshot | null>(null);
   const [diskSnapshot, setDiskSnapshot] = useState<FormSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const saveErrorRef = useRef<HTMLParagraphElement>(null);
   const [moveFieldErrors, setMoveFieldErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [movePhase, setMovePhase] = useState<MovePhase>('idle');
@@ -280,6 +283,7 @@ export function TrackMetadataModal({
     let cancelled = false;
     setPhase('loading');
     setError(null);
+    setSaveError(null);
     setSaving(false);
     setMovePhase('idle');
     setMovePreview(null);
@@ -331,6 +335,13 @@ export function TrackMetadataModal({
       cancelled = true;
     };
   }, [open, trackId]);
+
+  useEffect(() => {
+    if (!saveError) {
+      return;
+    }
+    saveErrorRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [saveError]);
 
   const parseSaveFields = ():
     | { ok: false; error: string }
@@ -421,18 +432,20 @@ export function TrackMetadataModal({
     const parsed = parseSaveFields();
     if (!parsed.ok) {
       setError(parsed.error);
+      setSaveError(null);
       return;
     }
 
     setSaving(true);
     setError(null);
+    setSaveError(null);
     setMoveFieldErrors([]);
     try {
       const updated = await api.updateTrackMetadata(track.id, parsed.payload);
       setSavedBaseline(parsed.snapshot);
       onSaved?.(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setSaveError(saveFailureMessage(err));
     } finally {
       setSaving(false);
     }
@@ -656,6 +669,11 @@ export function TrackMetadataModal({
           : (event) => void handleSave(event)
       }
     >
+      {saveError ? (
+        <p ref={saveErrorRef} className="metadata-save-error" role="alert">
+          {saveError}
+        </p>
+      ) : null}
       {(movePhase === 'confirm' || movePhase === 'moving') && movePreview ? (
         <>
           <div className="modal-body">

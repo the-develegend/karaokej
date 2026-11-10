@@ -1,6 +1,8 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { stat } from 'node:fs/promises';
@@ -8,6 +10,7 @@ import { access, constants } from 'node:fs/promises';
 import { TrackDto } from '@karaokej/shared';
 import { AppConfigService } from '../config/app-config.service';
 import { DbService } from '../db/db.service';
+import type { TrackRow } from '../db/types';
 import { pruneOrphanedCoverGroups } from '../covers/cover-storage';
 import { lyricPathFor } from '../library/fs-utils';
 import { readTrackMetadata } from '../library/scan-metadata';
@@ -22,9 +25,15 @@ import {
   type TrackMetadataFileDto,
 } from './metadata-fields';
 import { writeMetadataToFile } from './metadata-tags';
+import {
+  describeMetadataStoreError,
+  metadataStoreError,
+} from './metadata-store-error';
 
 @Injectable()
 export class TrackMetadataService {
+  private readonly logger = new Logger(TrackMetadataService.name);
+
   constructor(
     private readonly db: DbService,
     private readonly config: AppConfigService,
@@ -83,6 +92,26 @@ export class TrackMetadataService {
       throw new BadRequestException('title is required');
     }
 
+    try {
+      return await this.writeMetadata(trackId, track, absolute, desired);
+    } catch (err) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
+      this.logger.error(
+        `Could not store metadata for track ${trackId}: ${describeMetadataStoreError(err)}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+      throw metadataStoreError(err);
+    }
+  }
+
+  private async writeMetadata(
+    trackId: number,
+    track: TrackRow,
+    absolute: string,
+    desired: ReturnType<typeof normalizeEditableMetadata>,
+  ): Promise<TrackDto> {
     const fileRead = await readTrackMetadata(absolute, track.relative_path, {
       fsTimeoutMs: this.config.scanFsTimeoutMs,
     });
