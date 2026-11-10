@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   METADATA_SEARCH_PROVIDER_IDS,
   MetadataProviderTriedDto,
@@ -10,7 +10,11 @@ import {
   TrackMovePreviewDto,
 } from '@karaokej/shared';
 import { api } from '../api';
-import { formatDuration } from '../format';
+import {
+  formatCompareDuration,
+  formatDuration,
+  metadataDurationCompareState,
+} from '../format';
 import { ModalDialog } from './ModalDialog';
 import { ProcessingText } from './ProcessingText';
 import { StarRating } from './StarRating';
@@ -262,10 +266,18 @@ export function TrackMetadataModal({
       });
   }, [state.settings.metadataProviders]);
 
+  const defaultSearchProvidersRef = useRef(defaultSearchProviders);
+  defaultSearchProvidersRef.current = defaultSearchProviders;
+  const trackId = track?.id ?? null;
+
   useEffect(() => {
-    if (!open || !track) {
+    if (!open || trackId == null) {
       return;
     }
+    // Playback broadcasts a fresh session (including when a song ends) with a
+    // new settings object. Reloading here would wipe an in-progress edit or
+    // metadata search even though this track did not change.
+    let cancelled = false;
     setPhase('loading');
     setError(null);
     setSaving(false);
@@ -280,9 +292,13 @@ export function TrackMetadataModal({
     setHitIndex(0);
     setTriedProviders([]);
     setTryingProvider(null);
+    const providers = defaultSearchProvidersRef.current;
     void api
-      .readTrackMetadata(track.id)
+      .readTrackMetadata(trackId)
       .then((metadata: TrackMetadataDto) => {
+        if (cancelled) {
+          return;
+        }
         const snapshot = snapshotFromMetadata(metadata);
         setTitle(snapshot.title);
         setArtist(snapshot.artist);
@@ -301,14 +317,20 @@ export function TrackMetadataModal({
         setDiskSnapshot(snapshot);
         const q = [snapshot.artist, snapshot.title].filter(Boolean).join(' ');
         setSearchQuery(q);
-        setSelectedProviders(defaultSearchProviders);
+        setSelectedProviders(providers);
         setPhase('ready');
       })
       .catch((err) => {
+        if (cancelled) {
+          return;
+        }
         setError(err instanceof Error ? err.message : String(err));
         setPhase('error');
       });
-  }, [open, track?.id, defaultSearchProviders]);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, trackId]);
 
   const parseSaveFields = ():
     | { ok: false; error: string }
@@ -606,6 +628,17 @@ export function TrackMetadataModal({
   const allFieldsApplied =
     hitSnapshot != null && applyFields.every(({ key }) => isFieldApplied(key));
 
+  const durationCompareState = metadataDurationCompareState(
+    durationMs,
+    currentHit?.durationMs ?? null,
+  );
+  const durationCellTone =
+    durationCompareState === 'match'
+      ? 'metadata-compare-duration-match'
+      : durationCompareState === 'mismatch'
+        ? 'metadata-compare-duration-mismatch'
+        : undefined;
+
   return (
     <ModalDialog
       open={open}
@@ -801,6 +834,39 @@ export function TrackMetadataModal({
                   <div role="columnheader">On disk</div>
                   <div role="columnheader">Search result</div>
                   <div className="metadata-compare-action" role="columnheader" />
+                </div>
+                <div className="metadata-compare-row metadata-compare-duration" role="row">
+                  <div className="metadata-compare-label" role="rowheader">
+                    Duration
+                    {durationCompareState === 'match' ? (
+                      <span className="lyric-search-duration-badge metadata-compare-duration-badge">
+                        Duration match
+                      </span>
+                    ) : null}
+                  </div>
+                  <div
+                    className={[
+                      'metadata-compare-disk',
+                      durationCellTone,
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    role="cell"
+                  >
+                    {formatCompareDuration(durationMs)}
+                  </div>
+                  <div
+                    className={[
+                      'metadata-compare-hit',
+                      durationCellTone,
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    role="cell"
+                  >
+                    {formatCompareDuration(currentHit?.durationMs ?? null)}
+                  </div>
+                  <div className="metadata-compare-action" role="cell" aria-hidden />
                 </div>
                 {COMPARE_FIELDS.map(({ key, label, skipInApply }) => {
                   const canApply = !skipInApply && currentHit != null;

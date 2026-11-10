@@ -52,6 +52,25 @@ export function lyricDurationMatches(
   return Math.abs(hitDurationMs - trackDurationMs) <= LYRIC_DURATION_MATCH_TOLERANCE_MS;
 }
 
+export type MetadataDurationCompareState = 'unknown' | 'match' | 'mismatch';
+
+export function metadataDurationCompareState(
+  trackDurationMs: number | null | undefined,
+  hitDurationMs: number | null | undefined,
+): MetadataDurationCompareState {
+  if (trackDurationMs == null || hitDurationMs == null) {
+    return 'unknown';
+  }
+  return lyricDurationMatches(trackDurationMs, hitDurationMs) ? 'match' : 'mismatch';
+}
+
+export function formatCompareDuration(ms: number | null | undefined): string {
+  if (ms == null) {
+    return '—';
+  }
+  return formatClockDuration(ms);
+}
+
 export type TrackSubtitleSegment =
   | { kind: 'artist'; text: string; searchable: boolean }
   | { kind: 'album'; text: string; searchable: true }

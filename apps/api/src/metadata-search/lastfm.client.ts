@@ -73,6 +73,7 @@ export class LastFmMetadataClient implements MetadataProviderClient {
         musicbrainzRecordingId: null,
         musicbrainzReleaseId: null,
         isrc: null,
+        durationMs: null,
       });
     }
     return hits;

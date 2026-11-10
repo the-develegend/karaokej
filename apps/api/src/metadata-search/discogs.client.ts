@@ -70,6 +70,7 @@ export class DiscogsMetadataClient implements MetadataProviderClient {
         musicbrainzRecordingId: null,
         musicbrainzReleaseId: null,
         isrc: null,
+        durationMs: null,
       });
     }
     return hits;

@@ -72,6 +72,7 @@ export class GnuDbMetadataClient implements MetadataProviderClient {
           musicbrainzRecordingId: null,
           musicbrainzReleaseId: null,
           isrc: null,
+          durationMs: null,
         }));
       }
     } catch {
@@ -102,6 +103,7 @@ export class GnuDbMetadataClient implements MetadataProviderClient {
         musicbrainzRecordingId: null,
         musicbrainzReleaseId: null,
         isrc: null,
+        durationMs: null,
       });
       if (hits.length >= 10) {
         break;

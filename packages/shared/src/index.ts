@@ -244,6 +244,7 @@ export interface MetadataSearchHitDto {
   musicbrainzRecordingId: string | null;
   musicbrainzReleaseId: string | null;
   isrc: string | null;
+  durationMs: number | null;
 }
 
 export interface MetadataSearchRequestDto {

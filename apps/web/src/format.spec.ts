@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   formatAccumulatedDuration,
   formatClockDuration,
+  formatCompareDuration,
   formatTrackSubtitle,
   karaokeStemBadge,
   lyricDurationMatches,
+  metadataDurationCompareState,
 } from './format';
 
 describe('formatTrackSubtitle', () => {
@@ -141,6 +143,31 @@ describe('formatAccumulatedDuration', () => {
 
   it('returns null for empty lists', () => {
     expect(formatAccumulatedDuration({ totalMs: 0, unknownCount: 0 })).toBeNull();
+  });
+});
+
+describe('metadataDurationCompareState', () => {
+  it('returns unknown when either side is missing', () => {
+    expect(metadataDurationCompareState(null, 180_000)).toBe('unknown');
+    expect(metadataDurationCompareState(180_000, null)).toBe('unknown');
+  });
+
+  it('returns match within two seconds', () => {
+    expect(metadataDurationCompareState(180_000, 181_500)).toBe('match');
+  });
+
+  it('returns mismatch outside tolerance', () => {
+    expect(metadataDurationCompareState(180_000, 185_000)).toBe('mismatch');
+  });
+});
+
+describe('formatCompareDuration', () => {
+  it('uses em dash when duration is unknown', () => {
+    expect(formatCompareDuration(null)).toBe('—');
+  });
+
+  it('formats known durations as clock text', () => {
+    expect(formatCompareDuration(245_000)).toBe('4:05');
   });
 });
 

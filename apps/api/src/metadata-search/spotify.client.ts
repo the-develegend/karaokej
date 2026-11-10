@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { MetadataSearchHitDto } from '@karaokej/shared';
+import { sanitizeDurationMs } from '../library/duration-utils';
 import type {
   MetadataProviderClient,
   MetadataProviderContext,
@@ -74,6 +75,7 @@ export class SpotifyMetadataClient implements MetadataProviderClient {
       tracks?: {
         items?: Array<{
           name?: string;
+          duration_ms?: number;
           external_urls?: { spotify?: string };
           track_number?: number;
           disc_number?: number;
@@ -110,6 +112,7 @@ export class SpotifyMetadataClient implements MetadataProviderClient {
         musicbrainzRecordingId: null,
         musicbrainzReleaseId: null,
         isrc: track.external_ids?.isrc?.trim() ?? null,
+        durationMs: sanitizeDurationMs(track.duration_ms),
       });
     }
     return hits;

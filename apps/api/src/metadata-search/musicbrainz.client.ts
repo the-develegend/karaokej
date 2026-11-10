@@ -5,6 +5,7 @@ import type {
   MetadataProviderContext,
   MetadataSearchQuery,
 } from './metadata-search.types';
+import { sanitizeDurationMs } from '../library/duration-utils';
 import { luceneEscape } from './query-utils';
 
 const BASE = 'https://musicbrainz.org/ws/2';
@@ -66,6 +67,7 @@ export class MusicBrainzMetadataClient implements MetadataProviderClient {
       recordings?: Array<{
         id?: string;
         title?: string;
+        length?: number;
         'artist-credit'?: Array<{ artist?: { id?: string; name?: string } }>;
         releases?: Array<{
           id?: string;
@@ -104,6 +106,7 @@ export class MusicBrainzMetadataClient implements MetadataProviderClient {
         musicbrainzRecordingId: rec.id?.trim() ?? null,
         musicbrainzReleaseId: release?.id?.trim() ?? null,
         isrc: rec.isrcs?.[0]?.trim() ?? null,
+        durationMs: sanitizeDurationMs(rec.length),
       });
     }
     return hits;

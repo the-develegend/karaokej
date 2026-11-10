@@ -2620,6 +2620,29 @@ a.search-miss-btn:hover {
   justify-self: end;
 }
 
+.metadata-compare-duration-badge {
+  display: block;
+  margin-top: 0.25rem;
+  width: fit-content;
+}
+
+.metadata-compare-disk.metadata-compare-duration-match,
+.metadata-compare-hit.metadata-compare-duration-match {
+  padding: 0.2rem 0.35rem;
+  margin: -0.2rem -0.35rem;
+  border-radius: 0.35rem;
+  background: rgba(212, 175, 55, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.45);
+}
+
+.metadata-compare-disk.metadata-compare-duration-mismatch,
+.metadata-compare-hit.metadata-compare-duration-mismatch {
+  padding: 0.2rem 0.35rem;
+  margin: -0.2rem -0.35rem;
+  border-radius: 0.35rem;
+  box-shadow: inset 0 0 0 1px var(--warn, #e8a838);
+}
+
 @media (max-width: 720px) {
   .metadata-compare-table {
     grid-template-columns: minmax(5.5rem, 7rem) minmax(0, 1fr);

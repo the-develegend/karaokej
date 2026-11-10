@@ -55,6 +55,7 @@ describe('MetadataSearchService', () => {
         musicbrainzRecordingId: null,
         musicbrainzReleaseId: null,
         isrc: null,
+        durationMs: null,
       },
     ]);
     const service = new MetadataSearchService(
