@@ -10,6 +10,7 @@ import {
   type WriteStream,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { openContainingFolder } from './open-folder';
 import { splashHtml } from './splash';
 
 const API_HOST = '127.0.0.1';
@@ -438,6 +439,16 @@ if (!gotLock) {
       }
       return apiBaseUrl;
     });
+
+    ipcMain.handle(
+      'karaokej:open-containing-folder',
+      async (_event, filePath: unknown) => {
+        if (typeof filePath !== 'string') {
+          return 'Invalid file path';
+        }
+        return openContainingFolder(filePath);
+      },
+    );
 
     void boot().catch((err) => {
       log(`startup failed: ${err instanceof Error ? err.stack : String(err)}`);

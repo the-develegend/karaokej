@@ -13,6 +13,8 @@ import {
   FiChevronRight,
   FiChevronsLeft,
   FiChevronsRight,
+  FiPlay,
+  FiPlus,
 } from 'react-icons/fi';
 import { LuDices, LuHistory } from 'react-icons/lu';
 import {
@@ -102,6 +104,9 @@ export function LibraryPage() {
   const [playlistDetail, setPlaylistDetail] = useState<PlaylistDetailDto | null>(null);
   const [playModalPlaylistId, setPlayModalPlaylistId] = useState<number | null>(null);
   const [playModalTrack, setPlayModalTrack] = useState<TrackDto | null>(null);
+  const [playModalPageTracks, setPlayModalPageTracks] = useState<TrackDto[] | null>(
+    null,
+  );
   const [revealQueueItemId, setRevealQueueItemId] = useState<number | null>(null);
   const clearRevealQueueItem = useCallback(() => {
     setRevealQueueItemId(null);
@@ -738,6 +743,87 @@ export function LibraryPage() {
     })();
   };
 
+  const revealFirstAdded = (
+    beforeIds: Set<number>,
+    queue: Awaited<ReturnType<typeof api.addTracksToQueue>>,
+  ) => {
+    const firstNew = queue.find((item) => !beforeIds.has(item.id));
+    setRevealQueueItemId(firstNew?.id ?? null);
+  };
+
+  const handlePlayExplorerPage = () => {
+    if (tracks.length === 0) {
+      return;
+    }
+    if (state.playback.status === 'playing') {
+      setPlayModalPageTracks(tracks);
+      return;
+    }
+    const trackIds = tracks.map((track) => track.id);
+    void (async () => {
+      try {
+        const added = await api.playTracksNow(trackIds);
+        setRevealQueueItemId(added?.id ?? null);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+  };
+
+  const handlePlayExplorerPageNow = () => {
+    if (!playModalPageTracks?.length) {
+      return;
+    }
+    const trackIds = playModalPageTracks.map((track) => track.id);
+    setPlayModalPageTracks(null);
+    void (async () => {
+      try {
+        const added = await api.playTracksNow(trackIds);
+        setRevealQueueItemId(added?.id ?? null);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+  };
+
+  const handleQueueExplorerPageAtEnd = () => {
+    if (!playModalPageTracks?.length) {
+      return;
+    }
+    const trackIds = playModalPageTracks.map((track) => track.id);
+    const beforeIds = new Set(state.queue.map((item) => item.id));
+    setPlayModalPageTracks(null);
+    void (async () => {
+      try {
+        const queue = await api.addTracksToQueue(trackIds, 'end');
+        revealFirstAdded(beforeIds, queue);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+  };
+
+  const handleQueueExplorerPageAfterCurrent = () => {
+    if (!playModalPageTracks?.length) {
+      return;
+    }
+    const trackIds = playModalPageTracks.map((track) => track.id);
+    const beforeIds = new Set(state.queue.map((item) => item.id));
+    setPlayModalPageTracks(null);
+    void (async () => {
+      try {
+        const queue = await api.addTracksToQueue(trackIds, 'after_current');
+        revealFirstAdded(beforeIds, queue);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+  };
+
   const playModalPlaylist = playlistSummaries.find(
     (entry) => entry.id === playModalPlaylistId,
   );
@@ -962,7 +1048,10 @@ export function LibraryPage() {
         revealQueueItemId={revealQueueItemId}
         onRevealQueueItem={clearRevealQueueItem}
         library={({ activeTrackDragIds }) => (
-          <LibraryExplorerPane>
+          <LibraryExplorerPane
+            trackCount={tracks.length}
+            onPlayPage={handlePlayExplorerPage}
+          >
             <div className="library-pane-scroll">
               {tracks.length === 0 && !query.trim() ? (
                 <p className="empty">No songs match. Scan the library if it is empty.</p>
@@ -1178,6 +1267,18 @@ export function LibraryPage() {
         />
       )}
 
+      {playModalPageTracks && (
+        <PlayTrackModal
+          open={playModalPageTracks != null}
+          trackTitle={playModalPageTracks[0]?.title ?? 'Songs'}
+          songCount={playModalPageTracks.length}
+          onPlayNow={handlePlayExplorerPageNow}
+          onQueueAtEnd={handleQueueExplorerPageAtEnd}
+          onQueueAfterCurrent={handleQueueExplorerPageAfterCurrent}
+          onCancel={() => setPlayModalPageTracks(null)}
+        />
+      )}
+
       <Modal
         open={removeStemTrack != null}
         title="Remove AI stem"
@@ -1311,14 +1412,43 @@ export function LibraryPage() {
   );
 }
 
-function LibraryExplorerPane({ children }: { children: ReactNode }) {
+function LibraryExplorerPane({
+  children,
+  trackCount,
+  onPlayPage,
+}: {
+  children: ReactNode;
+  trackCount: number;
+  onPlayPage: () => void;
+}) {
   const accordion = useWorkspaceAccordion();
+  const paneOpen = accordion.isOpen('library');
+  const addLabel =
+    trackCount === 1
+      ? 'Play page · adds 1 song'
+      : `Play page · adds ${trackCount} songs`;
+
   return (
     <section className={`library-pane${paneAccordionClass('library', accordion)}`}>
       <div className="library-pane-toolbar">
         <PaneAccordionTrigger pane="library">
           <h2>Explorer</h2>
         </PaneAccordionTrigger>
+        {paneOpen && (
+          <button
+            type="button"
+            className="icon-btn"
+            title={addLabel}
+            aria-label={addLabel}
+            disabled={trackCount === 0}
+            onClick={onPlayPage}
+          >
+            <span className="icon-play-plus" aria-hidden>
+              <FiPlay />
+              <FiPlus className="icon-play-plus-badge" />
+            </span>
+          </button>
+        )}
       </div>
       {children}
     </section>

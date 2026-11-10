@@ -340,6 +340,18 @@ export const api = {
     }
     return added;
   },
+  /** Queue all tracks, then start playback on the first added item. */
+  playTracksNow: async (trackIds: number[]): Promise<QueueItemDto | null> => {
+    if (trackIds.length === 0) {
+      return null;
+    }
+    const [firstId, ...rest] = trackIds;
+    const first = await api.playTrackNow(firstId!);
+    if (rest.length > 0) {
+      await api.addTracksToQueue(rest, 'after_current');
+    }
+    return first;
+  },
   removeFromQueue: (id: number) =>
     request(`/api/queue/${id}`, { method: 'DELETE' }),
   clearQueue: (mode: 'all' | 'except_current' | 'before_current' = 'all') => {

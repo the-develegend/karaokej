@@ -1,6 +1,6 @@
 {
   "name": "karaokej-desktop",
-  "version": "0.1.3",
+  "version": "0.1.6",
   "private": true,
   "description": "Karaokej Electron shell for Windows",
   "main": "dist/main.js",

@@ -2465,6 +2465,37 @@ a.search-miss-btn:hover {
   margin: -0.2rem -0.35rem 0 0;
 }
 
+.modal-hint {
+  margin: 0.65rem 0 0;
+  color: var(--muted, #9a9aad);
+  font-size: 0.92rem;
+}
+
+.icon-play-plus {
+  position: relative;
+  display: inline-flex;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.icon-play-plus > svg:first-child {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.icon-play-plus-badge {
+  position: absolute;
+  right: -0.28rem;
+  bottom: -0.22rem;
+  width: 0.62rem !important;
+  height: 0.62rem !important;
+  padding: 0.05rem;
+  border-radius: 999px;
+  background: var(--bg-raise);
+  color: inherit;
+  stroke-width: 3;
+}
+
 .modal-body {
   color: var(--muted);
   line-height: 1.5;

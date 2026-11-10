@@ -84,6 +84,23 @@ export function DraggableTrackRow({
     await navigator.clipboard.writeText(path);
   };
 
+  const openFolderDesktop = window.karaokejDesktop?.openContainingFolder;
+
+  const openFilePath = async () => {
+    if (!openFolderDesktop) {
+      return;
+    }
+    try {
+      const { path } = await api.trackPath(track.id);
+      const err = await openFolderDesktop(path);
+      if (err) {
+        window.alert(err);
+      }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   return (
     <li
       ref={setNodeRef}
@@ -197,6 +214,15 @@ export function DraggableTrackRow({
               label: 'Copy file path',
               onSelect: copyFilePath,
             },
+            ...(openFolderDesktop
+              ? [
+                  {
+                    id: 'open-file-path',
+                    label: 'Open file path',
+                    onSelect: openFilePath,
+                  },
+                ]
+              : []),
             ...(track.karaokeStemStatus === 'ready'
               ? [
                   {
